@@ -1,3 +1,5 @@
+import logging
+import json
 from datetime import datetime
 import numpy as np
 
@@ -28,14 +30,14 @@ def range_average(range_str:str, separator:str='-'):
 
 # Function to safely parse JSON and handle errors
 def clean_and_parse_json(s:str):
-    import json
-    import mylogger
-    logger = mylogger.get(__name__)
+    
+    # import mylogging
+    # logging = mylogging.get(__name__)
     try:
         cleaned_string = s.replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t')
         return json.loads(cleaned_string)
     except json.JSONDecodeError as e:
-        logger.error(f"Error parsing JSON: {e}")
-        logger.error(f"Problematic data: {s}")
+        logging.error(f"Error parsing JSON: {e}")
+        logging.error(f"Problematic data: {s}")
         # Return None or some default value if JSON is invalid
         return None

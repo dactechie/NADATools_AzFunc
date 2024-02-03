@@ -1,7 +1,7 @@
-
-from typing import Literal
+import logging
+# from typing import Literal
 import pandas as pd
-import mylogger
+
 from data_config import keep_parent_fields, mulselect_option_to_nadafield
 from utils.base import check_for_string
 from utils.dtypes import convert_dtypes
@@ -13,17 +13,17 @@ from utils.fromstr import clean_and_parse_json
 from data_config import EstablishmentID_Program, nada_cols #, activities_w_days
 from process_odc_cols import expand_drug_info
 
-logger = mylogger.get(__name__)
+# logger = mylogger.get(__name__)
 
 
 def limit_clients_active_inperiod(df, start_date, end_date):
   # clients_inperiod = df[ (df.AssessmentDate >=  '2022-07-01') & (df.AssessmentDate <= '2023-06-30')].SLK.unique()
-  logger.debug(f"Total clients {len(df)}")
+  logging.debug(f"Total clients {len(df)}")
   
   clients_inperiod = df[ (df.AssessmentDate >=  start_date) & (df.AssessmentDate <= end_date)].SLK.unique()
   df_active_clients = df [ df['SLK'].isin(clients_inperiod) ]
   
-  logger.debug(f"Clients in period {len(df_active_clients)}")
+  logging.debug(f"Clients in period {len(df_active_clients)}")
 
   return df_active_clients
 
@@ -31,7 +31,7 @@ def limit_clients_active_inperiod(df, start_date, end_date):
 def get_surveydata_expanded(df:pd.DataFrame):#, prep_type:Literal['ATOM', 'NADA', 'Matching'] ) -> pd.DataFrame: 
   # https://dschoenleber.github.io/pandas-json-performance/
   
-  logger.debug("\t get_surveydata_expanded")
+  logging.debug("\t get_surveydata_expanded")
 
   df_surveydata = df['SurveyData'].apply(clean_and_parse_json)
   df_surveydata_expanded:pd.DataFrame =  pd.json_normalize(df_surveydata.tolist(), max_level=1)
@@ -85,11 +85,9 @@ def convert_true_falsefields(df1, field_names):
   return transform_multiple(df1, field_names,to_num_bool_none)
 
 
-
-
 def prep_dataframe_nada(df:pd.DataFrame):
 
-  logger.debug(f"prep_dataframe of length {len(df)} : ")
+  logging.debug(f"prep_dataframe of length {len(df)} : ")
   df2 = get_surveydata_expanded(df.copy())
  
   df4 = drop_notes_by_regex(df2) # remove *Goals notes, so do before PDC step (PDCGoals dropdown)
@@ -113,5 +111,44 @@ def prep_dataframe_nada(df:pd.DataFrame):
   df7.rename(columns={'PartitionKey': 'SLK'}, inplace=True)
   
   df9 = df7.sort_values(by="AssessmentDate")
-  logger.debug(f"Done Prepping df")
+  logging.debug(f"Done Prepping df")
   return df9
+
+
+# def prep_dataframe(df:pd.DataFrame, prep_type: Literal['ATOM', 'NADA', 'Matching'] = 'ATOM'):
+#    # because Program is in SurveyData
+  
+#   if prep_type == 'Matching':
+#     return prep_dataframe_matching(df)
+
+#   logger.debug(f"prep_dataframe of length {len(df)} : ")
+#   df2 = get_surveydata_expanded(df.copy())
+
+#   df3 = drop_fields(df2,['ODC'])
+#   df4 = drop_cols_contains_regex(df3, ATOM_DROP_COLCONTAINS_REGEX) # remove *Goals notes, so do before PDC step (PDCGoals dropdown)
+#   df5 = normalize_first_element(df4,'PDC') #TODO: (df,'ODC') # only takes the first ODC   
+
+ 
+#   df6 = df5[df5.PDCSubstanceOrGambling.notna()]# removes rows without PDC
+
+#   # df6.loc[:,'Program'] = df6['RowKey'].str.split('_').str[0] # has to be made into category
+#   df7 = convert_dtypes(df6)
+
+#   # df.PDCAgeFirstUsed[(df.PDCAgeFirstUsed.notna()) & (df.PDCAgeFirstUsed != '')].astype(int)
+#  # "Expected bytes, got a 'int' object", 'Conversion failed for column PDCAgeFirstUsed with type object'
+#   df8 = drop_fields(df7, ['PDCAgeFirstUsed',\
+#                            'PrimaryCaregiver','Past4WkAodRisks']) 
+#   # 'cannot mix list and non-list, non-null values', 
+#   # 'Conversion failed for column PrimaryCaregiver, Past4WkAodRisks with type object')
+
+#   if 'SLK' in df8.columns:
+#     df8.drop(columns=['SLK'], inplace=True) 
+  
+#   df8.rename(columns={'PartitionKey': 'SLK'}, inplace=True)
+  
+#   df9 = df8.sort_values(by="AssessmentDate")
+ 
+#   df9['PDC'] = df9['PDCSubstanceOrGambling']
+ 
+#   logger.debug(f"Done Prepping df")
+#   return df9

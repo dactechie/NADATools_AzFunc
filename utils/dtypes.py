@@ -5,15 +5,16 @@
   convert the data to the correct type.
   
 '''
+import logging 
 import pandas as pd
 from pandas.api.types import CategoricalDtype
-import mylogger
+# import mylogging
 from data_config import predef_categories,\
     question_list_for_categories, data_types, option_variants #, remove_if_under_threshold
 
 # from utils.fromstr import range_average
 
-logger = mylogger.get(__name__)
+# logging = mylogging.get(__name__)
 
     # - pandas.Categorical is used to create a variable that holds categorical data.
 
@@ -40,7 +41,7 @@ def define_all_categories(df:pd.DataFrame):
                         )
                         for field in question_list_for_categories]
   
-  logger.debug(f"category_nametypes: {category_nametypes}")
+  logging.debug(f"category_nametypes: {category_nametypes}")
 
   df1 = df.copy()  
   # Field elements must be 2- or 3-tuples, got ''Yes - Completely safe''
@@ -73,7 +74,7 @@ def fix_variants (df1):
   df = df1.copy()
   for field, variant_dict in option_variants.items():  # type: ignore #PDCMethodOfUse
     for variant, original in variant_dict.items(): # type: ignore
-      logger.info(f"fixing {field} {variant} to {original}")
+      logging.info(f"fixing {field} {variant} to {original}")
       d1 = df.loc[df[field] == variant].copy()
       d1.loc[:,field] = original
       df.update(d1)
@@ -86,21 +87,21 @@ def fix_numerics(df1):
   df = df1.copy()
   
   numeric_fields = [k for k, v in data_types.items() if v == 'numeric']
-  logger.debug(f"numeric_fields: {numeric_fields}")
+  logging.debug(f"numeric_fields: {numeric_fields}")
   df[numeric_fields] = df[numeric_fields].apply(pd.to_numeric, errors='coerce') # ignore ?
 
   # range_fields = [k for k, v in data_types.items() if v == 'range']
   # range_fields = [ f for f in df.columns
   #                    for sx in fieldname_suffixes_range
   #                       if f"_{sx}" in f ]
-  # logger.debug(f"range_fields: {range_fields}") 
+  # logging.debug(f"range_fields: {range_fields}") 
   # df[range_fields] = df[range_fields].applymap(range_average)
 
   return df
 
 
 def convert_dtypes(df1):
-  logger.debug(f"convert_dtypes")
+  logging.debug(f"convert_dtypes")
   df = df1.copy()
   
   convert_to_datetime(df,'AssessmentDate') # TODO : DOB

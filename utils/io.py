@@ -2,12 +2,13 @@
 import os
 # import csv
 from datetime import datetime
+import logging
 import pandas as pd
-import mylogger
+# import mylogging
 from azutil.helper import get_results
 # from filters import get_outfilename_for_filters
 
-logger = mylogger.get(__name__)
+# logging = mylogging.get(__name__)
 
 def read_csv_to_dataframe(csv_file_path) -> pd.DataFrame:
     df = pd.read_csv(csv_file_path, encoding='utf-8-sig')
@@ -103,9 +104,9 @@ def write_parquet(df:pd.DataFrame, file_path:str, force=False) -> pd.DataFrame|N
   parent_dir = "/".join(pathdirs_without_fname)
   if force or os.path.exists(parent_dir):
     df.to_parquet(f"{file_path}")
-    logger.info(f"Wrote to parquet file {file_path}")
+    logging.info(f"Wrote to parquet file {file_path}")
     return
-  logger.info(f"Did not write to  file {file_path}")
+  logging.info(f"Did not write to  file {file_path}")
  
 
 #TODO : store /load parquet file from file/blob storage
@@ -115,15 +116,15 @@ def get_data(table:str, start_date, end_date, download_filepath:str, filters:dic
   #
   if cache:
     if os.path.exists(f"{download_filepath}"):
-      logger.info(f"Using cached data from {download_filepath}")
+      logging.info(f"Using cached data from {download_filepath}")
       df = read_parquet(f"{download_filepath}")
       return df
     else:
-      logger.info("No cached data found, loading from DB")
+      logging.info("No cached data found, loading from DB")
 
   results = get_results(table, start_date, end_date, filters)
   if not results:
-    logger.error("Zero results returned from get_results (backend)")
+    logging.error("Zero results returned from get_results (backend)")
     return None
   
   df = pd.DataFrame.from_records(results)

@@ -1,8 +1,9 @@
+import logging
 import pandas as pd
 from data_config import nada_drug_days_categories, PDC_ODC_ATOMfield_names as PDC_ODC_fields
 from utils.fromstr import range_average
-import mylogger
-logger = mylogger.get(__name__)
+# import mylogging
+# logging = mylogging.get(__name__)
 
 
 # TODO: use NADA fields
@@ -30,7 +31,7 @@ def get_nada_drg_category(drug_name:str) -> tuple[str, int]:
      if drug_name in substances:
         return category_name, 1
   # print(f"no category for drug {drug_name}. ")
-  # logger.error(f"no category for drug {drug_name}. ")
+  # logging.error(f"no category for drug {drug_name}. ")
   return drug_name, 0
 
 """
@@ -54,7 +55,7 @@ def get_nada_drg_category(drug_name:str) -> tuple[str, int]:
 #       if typical_qty == '0':
 #          return empty, 0.0
 #       if typical_qty == 'Other':
-#          logger.error("'Other' used for HowMuchPerOcassion. Un-reportable value", assessment['RowKey'])
+#          logging.error("'Other' used for HowMuchPerOcassion. Un-reportable value", assessment['RowKey'])
 #          return '', None
 #       typical_qty = range_average(typical_qty)
 #       qty_str = f"{typical_qty}"
@@ -76,7 +77,7 @@ def get_typical_qty(item, field_names:dict[str, str], assessment)-> tuple[float|
       if typical_qty == '0':
          return 0.0, None, "0"
       if typical_qty == 'Other':
-         logger.warn("'Other' used for HowMuchPerOcassion. Un-reportable value", assessment['RowKey'])
+         logging.warn("'Other' used for HowMuchPerOcassion. Un-reportable value", assessment['RowKey'])
          return None, None, ""
       typical_qty = range_average(typical_qty)
   if not typical_unit:
@@ -98,7 +99,7 @@ def process_drug_list_for_assessment(pdc_odc_colname:str, assessment):
 
     substance = item.get(field_drug_name, '')    
     if not substance:
-      # logger.error(f"Data Quality error {field_drug_name} not in drug dict. SLK:{assessment['PartitionKey']}, RowKey:{assessment['RowKey']}.")
+      # logging.error(f"Data Quality error {field_drug_name} not in drug dict. SLK:{assessment['PartitionKey']}, RowKey:{assessment['RowKey']}.")
       continue
     # unique_subtances.append(substance) 
     nada_drug, found_category= get_nada_drg_category (substance)
@@ -111,10 +112,10 @@ def process_drug_list_for_assessment(pdc_odc_colname:str, assessment):
           nada_drug ='Another Drug2'
                  
     # if not field_use_ndays in item:
-    #   logger.error(f"Data Quality error {field_use_ndays} not in drug({substance})dict. \
+    #   logging.error(f"Data Quality error {field_use_ndays} not in drug({substance})dict. \
     #                SLK:{assessment['SLK']}, RowKey:{assessment['RowKey']}.")
     # if not field_perocc in item:
-    #   logger.error(f"Data Quality error {field_perocc} not in drug({substance})dict. \
+    #   logging.error(f"Data Quality error {field_perocc} not in drug({substance})dict. \
     #                SLK:{assessment['SLK']}, RowKey:{assessment['RowKey']}.")             
        
     row_data[ f"{nada_drug}_DaysInLast28"] = item.get(field_use_ndays,'')     

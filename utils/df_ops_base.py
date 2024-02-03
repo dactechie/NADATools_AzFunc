@@ -1,7 +1,30 @@
 
-from datetime import datetime
+import datetime
+import calendar
 import pandas as pd
 
+
+"""
+  NOTE: if there are open episodes, it returns last_end as 
+        the last date of the previous month
+"""
+def get_firststart_lastend(first_dt_series: pd.Series, last_dt_series: pd.Series):
+    # Get the earliest date from the first datetime series
+    first_start = first_dt_series.min()
+
+    # Check if there are any non-null values in the last datetime series
+    if last_dt_series.notnull().any():
+        # Get the latest date from the last datetime series
+        last_end = last_dt_series.max()
+    else:
+        # If all values in the last datetime series are null,
+        # find the last day of the previous month
+        current_date = datetime.date.today()
+        first_day_of_current_month = datetime.date(current_date.year, current_date.month, 1)
+        last_day_of_previous_month = first_day_of_current_month - datetime.timedelta(days=1)
+        last_end = last_day_of_previous_month
+
+    return first_start, last_end
 
 def to_num_yn_none(x) -> str|None:
     if x == 'No':
@@ -29,8 +52,8 @@ def transform_multiple(df1:pd.DataFrame, fields:list[str], transformer_fn)-> pd.
 """
 def float_date_parser(date_val):
      # Check if the input is NaN (Not a Number)
-    if pd.isna(date_val):
-        return datetime.now().date()  # 
+    if pd.isna(date_val) or not date_val:
+        return datetime.datetime.now().date()  # 
     
     # if not isinstance(date_str, int) :
     #     return datetime.now().date()  # Replace with today's date

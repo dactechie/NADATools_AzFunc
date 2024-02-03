@@ -3,14 +3,15 @@
 #if TYPE_CHECKING:
 # import os
 from typing import Literal
-import mylogger
+# import mylogger
+import logging
 from utils.io import get_data, read_parquet, write_parquet, read_csv_to_dataframe
-from data_prep import prep_dataframe, prep_dataframe_nada \
+from data_prep import prep_dataframe_nada \
       , limit_clients_active_inperiod #, prep_dataframe_episodes
 from data_config import  ATOM_DB_filters 
 from utils.df_ops_base import float_date_parser
 
-logger = mylogger.get(__name__)
+# logger = mylogger.get(__name__)
 
 # if there is no pre-processed data, then extract and process it
 # Processing it includes:
@@ -22,44 +23,40 @@ logger = mylogger.get(__name__)
 #   - caching the processed version
 
 # Note:  purpose =matching :  may be ACT also 
-def extract_prep_atom_data(extract_start_date, extract_end_date
-                      , active_clients_start_date
-                      , active_clients_end_date
-                      , fname, min_atoms_per_client = -1
+def extract_prep_atom_data(extract_start_date, extract_end_date                              
                       , purpose:Literal['NADA', 'Matching']='Matching') :#-> pd.DataFrame|None:
       
-  
-  processed_filepath = f"./data/processed/atom_{purpose}_{fname}.parquet"
+  period_range = f"{extract_start_date}-{extract_end_date}"
+  processed_filepath = f"./data/processed/atom_{purpose}_{period_range}.parquet"
   processed_df = read_parquet(processed_filepath)
   
   if not(isinstance(processed_df, type(None)) or processed_df.empty):
-    logger.debug("found & returning pre-processed parquet file.")
+    logging.debug("found & returning pre-processed parquet file.")
     return processed_df
   
-  logger.info("No processed data found, loading from raw data.")
+  logging.info("No processed data found, loading from raw data.")
   
   filters = ATOM_DB_filters[purpose]
   raw_df = get_data('ATOM'
                     ,extract_start_date, extract_end_date
-                    , f"./data/in/atom_{purpose}_{fname}.parquet"
+                    , f"./data/in/atom_{purpose}_{period_range}.parquet"
                     ,filters=filters
                     , cache=True)
   
   if isinstance(raw_df, type(None)) or raw_df.empty:
-    logger.error("No data found. Exiting.")
+    logging.error("No data found. Exiting.")
     exit(1)
   
   # Clean and Transform the dataset
   if purpose == 'NADA':
     processed_df = prep_dataframe_nada(raw_df)
   else:
-    processed_df = prep_dataframe(raw_df, prep_type=purpose) # only one filter: PDCSubstanceOrGambling has to have a value
+     raise NotImplementedError("Matching prep has not yet been implemented")
+    # processed_df = prep_dataframe(raw_df, prep_type=purpose) # only one filter: PDCSubstanceOrGambling has to have a value
     
-  if active_clients_start_date and active_clients_end_date:
-    processed_df = limit_clients_active_inperiod(processed_df, active_clients_start_date, active_clients_end_date)
+  # if active_clients_start_date and active_clients_end_date:
+  #   processed_df = limit_clients_active_inperiod(processed_df, active_clients_start_date, active_clients_end_date)
     
-  
-  
   # cache the processed data
   # processed_df.to_parquet(f"{processed_filepath}")
   # try:
@@ -72,12 +69,14 @@ def extract_prep_atom_data(extract_start_date, extract_end_date
   # finally:
   return processed_df
 
-     
-
-
 
 import os
 import pandas as pd
+
+
+def cols_prep(source_df, dest_columns, fill_new_cols) -> pd.DataFrame:
+  df_final = source_df.reindex(columns=dest_columns, fill_value=fill_new_cols)
+  return df_final
 
 # List of column names in the CSV
 column_names = ['ESTABLISHMENT IDENTIFIER', 'GEOGRAPHICAL LOCATION', 'PMSEpisodeID', 'PMSPersonID', 'DOB', 'DOB STATUS', 'SEX', 'COUNTRY OF BIRTH', 'INDIGENOUS STATUS', 'PREFERRED LANGUAGE', 'SOURCE OF INCOME', 'LIVING ARRANGEMENT', 'USUAL ACCOMMODATION', 'CLIENT TYPE', 'PRINCIPAL DRUG OF CONCERN', 'PDCSubstanceOfConcern', 'ILLICIT USE', 'METHOD OF USE PRINCIPAL DRUG', 'INJECTING DRUG USE', 'SETTING', 'CommencementDate', 'POSTCODE', 'SOURCE OF REFERRAL', 'MAIN SERVICE', 'EndDate', 'END REASON', 'REFERRAL TO ANOTHER SERVICE', 'FAMILY NAME', 'GIVEN NAME', 'MIDDLE NAME', 'TITLE', 'SLK', 'MEDICARE NUMBER', 'PROPERTY NAME', 'UNIT FLAT NUMBER', 'STREET NUMBER', 'STREET NAME', 'SUBURB']
@@ -113,23 +112,28 @@ column_names = ['ESTABLISHMENT IDENTIFIER', 'GEOGRAPHICAL LOCATION', 'PMSEpisode
 
 
 #Please use 'date_format' instead, or read your data in as 'object' dtype and then call 'to_datetime'.  
-def load_and_parse_csv(data, rename_columns,columns_of_interest, date_cols:list[str]):
-    # Load the CSV
+def df_from_list(data, rename_columns
+                   , columns_of_interest:list[str]
+                   , date_cols:list[str]) -> pd.DataFrame:
+  
+    # Splitting each string into a list of values
+    # split_data = [row.split(',') for row in data]
 
-    # df = pd.read_csv(filepath,  usecols=columns_of_interest)
-    df = pd.DataFrame(data)
+    # Extracting the header (first row) and the data (rest of the rows)
+    headers = data[0]
+    data_rows = data[1:]
+
+    # Creating a DataFrame
+    df = pd.DataFrame(data_rows, columns=headers)
+    # c = [c.replace(' ','_') for c in columns_of_interest]
     df = df[columns_of_interest]
-                    # , date_format='%d%m%Y', parse_dates=['START DATE', 'END DATE'])
-    # Apply the convert_date function to the date columns
-    # df['START DATE'] = df['START DATE'].apply(float_date_parser)
-    # df['END DATE'] = df['END DATE'].apply(float_date_parser)
 
+    # dt_cols = [c.replace(' ','_') for c in date_cols]
     for dtcol in date_cols:
-       df[dtcol] = df[dtcol].apply(float_date_parser)
+       df.loc[:,dtcol] = df[dtcol].apply(float_date_parser)
        
     df.rename(columns=rename_columns, inplace=True)
-   
-
+  
     # df['CommencementDate'] = pd.to_datetime(df['CommencementDate'], format='%d%m%Y')
     # df['EndDate'] = pd.to_datetime(df['EndDate'], format='%d%m%Y')    
     return df
@@ -181,9 +185,9 @@ def load_and_parse_episode_csvs(directory, columns_of_interest):
             df['CommencementDate'] = pd.to_datetime(df['CommencementDate'], format='%d%m%Y',errors='coerce')
             df['EndDate'] = pd.to_datetime(df['EndDate'], format='%d%m%Y', errors='coerce')
         except ValueError as e:
-            print(f"Error parsing dates in file {filename} with error {str(e)}")
-            print("The problematic row is:")
-            print(df.iloc[-1])
+            logging.error(f"Error parsing dates in file {filename} with error {str(e)}")
+            logging.error("The problematic row is:")
+            logging.error(df.iloc[-1])
             continue  # Skip this file and move to the next one
         # Append the dataframe to the list
         dfs.append(df)

@@ -2,8 +2,9 @@
 import pandas as pd
 from data_config import EstablishmentID_Program
 
-def prep_for_match(ep_df):
-    ep_df['Program'] = ep_df['ESTABLISHMENT IDENTIFIER'].map(EstablishmentID_Program)
+def prep_for_match(ep_df) -> pd.DataFrame:
+    ep_df['Program'] = ep_df['ESTABLISHMENT_IDENTIFIER'].map(EstablishmentID_Program)
+    return ep_df
 
 
 def get_stage_per_episode(df:pd.DataFrame)-> pd.Series:  
