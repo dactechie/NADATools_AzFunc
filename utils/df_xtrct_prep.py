@@ -23,7 +23,7 @@ from utils.df_ops_base import float_date_parser
 #   - caching the processed version
 
 # Note:  purpose =matching :  may be ACT also 
-def extract_prep_atom_data(extract_start_date, extract_end_date                              
+def extract_prep_atom_data(extract_start_date:int, extract_end_date:int                              
                       , purpose:Literal['NADA', 'Matching']='Matching') :#-> pd.DataFrame|None:
       
   period_range = f"{extract_start_date}-{extract_end_date}"
