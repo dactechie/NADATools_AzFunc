@@ -1,8 +1,17 @@
 
 import datetime
-import calendar
 import pandas as pd
 
+
+def get_last_day_n_months_ago(n_months_ago) -> datetime.date:
+    current_date = datetime.date.today()
+    first_day_of_current_month = datetime.date(current_date.year
+                                               , current_date.month
+                                               , n_months_ago)
+    last_day_of_previous_month = first_day_of_current_month \
+                                    - datetime.timedelta(days=1)
+    last_end = last_day_of_previous_month
+    return last_end
 
 """
   NOTE: if there are open episodes, it returns last_end as 
@@ -19,10 +28,7 @@ def get_firststart_lastend(first_dt_series: pd.Series, last_dt_series: pd.Series
     else:
         # If all values in the last datetime series are null,
         # find the last day of the previous month
-        current_date = datetime.date.today()
-        first_day_of_current_month = datetime.date(current_date.year, current_date.month, 1)
-        last_day_of_previous_month = first_day_of_current_month - datetime.timedelta(days=1)
-        last_end = last_day_of_previous_month
+        last_end = get_last_day_n_months_ago(1)
 
     return first_start, last_end
 

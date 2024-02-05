@@ -2,6 +2,8 @@
 #from typing import TYPE_CHECKING
 #if TYPE_CHECKING:
 # import os
+from utils.dtypes import date_to_str
+# from datetime import date
 from typing import Literal
 # import mylogger
 import logging
@@ -23,11 +25,16 @@ from utils.df_ops_base import float_date_parser
 #   - caching the processed version
 
 # Note:  purpose =matching :  may be ACT also 
-def extract_prep_atom_data(extract_start_date:int, extract_end_date:int                              
+def extract_prep_atom_data(extract_start_date, extract_end_date                              
                       , purpose:Literal['NADA', 'Matching']='Matching') :#-> pd.DataFrame|None:
-      
-  period_range = f"{extract_start_date}-{extract_end_date}"
+  
+  xtr_start_str = date_to_str(extract_start_date, str_fmt='yyyymmdd')
+  xtr_end_str = date_to_str(extract_end_date, str_fmt='yyyymmdd')
+  period_range = f"{xtr_start_str}-{xtr_end_str}"
   processed_filepath = f"./data/processed/atom_{purpose}_{period_range}.parquet"
+  
+  logging.info(f"Attempting to load processed data from {processed_filepath}")
+
   processed_df = read_parquet(processed_filepath)
   
   if not(isinstance(processed_df, type(None)) or processed_df.empty):
@@ -38,14 +45,14 @@ def extract_prep_atom_data(extract_start_date:int, extract_end_date:int
   
   filters = ATOM_DB_filters[purpose]
   raw_df = get_data('ATOM'
-                    ,extract_start_date, extract_end_date
+                    ,int(xtr_start_str), int(xtr_end_str)
                     , f"./data/in/atom_{purpose}_{period_range}.parquet"
                     ,filters=filters
                     , cache=True)
   
   if isinstance(raw_df, type(None)) or raw_df.empty:
     logging.error("No data found. Exiting.")
-    exit(1)
+    return None
   
   # Clean and Transform the dataset
   if purpose == 'NADA':
@@ -76,6 +83,9 @@ import pandas as pd
 
 def cols_prep(source_df, dest_columns, fill_new_cols) -> pd.DataFrame:
   df_final = source_df.reindex(columns=dest_columns, fill_value=fill_new_cols)
+
+  float_cols = df_final.select_dtypes(include=['float']).columns
+  df_final[float_cols] = df_final[float_cols].astype('Int64')
   return df_final
 
 # List of column names in the CSV

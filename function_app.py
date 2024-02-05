@@ -11,7 +11,7 @@ from survey_from_episodes import prep_episodes
 from survey_from_episodes import get_matched_assessments
 
 app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
-MyEnvironmentConfig().setup('local')
+MyEnvironmentConfig().setup('prod')
 """
   - see full documentation here __ TODO: add docus
   - triggered when a sharepoint file is dropped in folder: ___ TODO: specify __
@@ -49,6 +49,21 @@ def SurveyTxtGenerator(req: func.HttpRequest) -> func.HttpResponse:
         # result_dicts = data
         result_dicts = get_matched_assessments(ep_df, episode_boundary_slack_days)
         #                                           nostrict=False)
+        df_matched = result_dicts.get("result")
+        # df_warnings = result_dicts.get("warnings")
+        if not df_matched:
+          results = json.dumps({ "result_code":"no_matches"
+                               ,"result_message": result_dicts.get("result_message")
+                               })
+          return func.HttpResponse(body=results,
+                                 mimetype="application/json", status_code=400)
+        
+        # generate matching stats , and audit stats
+        # get_matching_stats (df_matched)
+
+        # save_surveytxt_file (df_matched)
+
+          
         # in dev env only :
         # logging.info(result_dicts)
         results = json.dumps(result_dicts)
@@ -66,10 +81,10 @@ def SurveyTxtGenerator(req: func.HttpRequest) -> func.HttpResponse:
         return func.HttpResponse(json.dumps({'error': str(e)}), status_code=400)
     
 
-# if __name__ == '__main__':
-#     # SurveyTxtGenerator()
-#     data = []
-#     df = prep_episodes(data)
+if __name__ == '__main__':
+    # SurveyTxtGenerator()
+    data = []
+    df = prep_episodes(data)
 
     # name = req.params.get('name')
     # if not name:

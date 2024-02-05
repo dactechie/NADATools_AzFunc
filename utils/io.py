@@ -110,7 +110,7 @@ def write_parquet(df:pd.DataFrame, file_path:str, force=False) -> pd.DataFrame|N
  
 
 #TODO : store /load parquet file from file/blob storage
-def get_data(table:str, start_date, end_date, download_filepath:str, filters:dict|None={}, cache=False) -> pd.DataFrame|None:
+def get_data(table:str, start_date:int, end_date:int, download_filepath:str, filters:dict|None={}, cache=False) -> pd.DataFrame|None:
   #
   # get from ATOM Azure DB and save to disk
   #

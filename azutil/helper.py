@@ -38,7 +38,7 @@ table_config = {
   }
 }
 
-def get_results(table:str, start_date, end_date, filters:dict|None={}) -> list[dict]:
+def get_results(table:str, start_date:int, end_date:int, filters:dict|None={}) -> list[dict]:
     
     stq = SampleTablesQuery(table)    
     

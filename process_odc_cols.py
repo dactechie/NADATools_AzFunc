@@ -19,8 +19,8 @@ from utils.fromstr import range_average
 
 
 
-def convert_str_to_int_rounded(str_number:str) -> int:
-    return int(round(float(str_number),0))
+# def convert_str_to_int_rounded(str_number:str) -> int:
+#     return int(round(float(str_number),0))
 
 """
   2nd return variable it whether a category was found or not
@@ -62,32 +62,42 @@ def get_nada_drg_category(drug_name:str) -> tuple[str, int]:
 #       if typical_unit:
 #         qty_str = f"{qty_str}; {typical_unit} units."
 #   return qty_str, typical_qty
-        
 
-def get_typical_qty(item, field_names:dict[str, str], assessment)-> tuple[float|None, str|None, str]:
+def get_warning(item, drugname, field_name:str, assessment):  
+  warning = ( assessment.PartitionKey, assessment.RowKey,         
+          { drugname: item.get(drugname),
+           'InvalidValue': item.get(field_name), 'InvalidFieldName': field_name}
+  )
+  return warning
+
+def get_typical_qty(item, field_names:dict[str, str], assessment)->  tuple[float, str, str, tuple|None]: #tuple[float|None, str|None, str]:
   field_perocc = field_names['per_occassion']
   field_units = field_names['units']
 
-  typical_qty = item.get(field_perocc,'')
+  typical_qty = item.get(field_perocc, 0.0)
   typical_unit = item.get(field_units,'')
-
+ 
   if not typical_qty:
-     return typical_qty, None, ""
-  if not pd.isna(typical_qty):      
-      if typical_qty == '0':
-         return 0.0, None, "0"
+     warning = get_warning(item, field_names['drug_name'], field_perocc, assessment)
+     return typical_qty, "", "", warning
+  if not pd.isna(typical_qty):
+      if typical_qty == '0': # Don't bother with unit if qty = 0
+         return 0.0, "", "0", None
       if typical_qty == 'Other':
-         logging.warn("'Other' used for HowMuchPerOcassion. Un-reportable value", assessment['RowKey'])
-         return None, None, ""
+         logging.warn(f"'Other' used for HowMuchPerOcassion. Un-reportable value { assessment.get('RowKey')}")
+         warning = get_warning(item, field_names['drug_name'], field_perocc, assessment)
+         return 0.0, "", "", warning
       typical_qty = range_average(typical_qty)
   if not typical_unit:
-     return typical_qty, "", f"{typical_qty}"
+     warning = get_warning(item, field_names['drug_name'], field_units, assessment)
+     return typical_qty, "", f"{typical_qty}", warning
 
-  return typical_qty, typical_unit, f"{typical_qty}; {typical_unit}"
+  return typical_qty, typical_unit, f"{typical_qty}; {typical_unit}", None
 
 
 def process_drug_list_for_assessment(pdc_odc_colname:str, assessment):
   row_data = {}
+  warnings = []
   for item in assessment[pdc_odc_colname]: #'ODC: []' in row
     # Extract data for each substance
     field_names  = PDC_ODC_fields[pdc_odc_colname]
@@ -102,7 +112,7 @@ def process_drug_list_for_assessment(pdc_odc_colname:str, assessment):
       # logging.error(f"Data Quality error {field_drug_name} not in drug dict. SLK:{assessment['PartitionKey']}, RowKey:{assessment['RowKey']}.")
       continue
     # unique_subtances.append(substance) 
-    nada_drug, found_category= get_nada_drg_category (substance)
+    nada_drug, found_category = get_nada_drg_category (substance)
     if not found_category:
        if not row_data  or not( 'Another Drug1'  in row_data) or pd.isna(row_data['Another Drug1']):
           row_data['Another Drug1'] = nada_drug
@@ -119,25 +129,32 @@ def process_drug_list_for_assessment(pdc_odc_colname:str, assessment):
     #                SLK:{assessment['SLK']}, RowKey:{assessment['RowKey']}.")             
        
     row_data[ f"{nada_drug}_DaysInLast28"] = item.get(field_use_ndays,'')     
-    per_occassion , typical_unit_str, typical_use_str =  get_typical_qty(item, field_names, assessment)
-    row_data[   f"{nada_drug}_PerOccassionUse"] = per_occassion
+    per_occassion , typical_unit_str, typical_use_str, warning =  get_typical_qty(item, field_names, assessment)
+
+    row_data [ f"{nada_drug}_PerOccassionUse"] = per_occassion
     row_data [ f"{nada_drug}_Units"] = typical_unit_str
     row_data [ f"{nada_drug}_TypicalQtyStr"] = typical_use_str
-    
+    if warning:
+      warnings.append(warning)
 
-  return row_data 
+  return row_data, warnings
 
 
 def normalize_pdc_odc(df):
   new_data = []
+  warnings = []
   for index, row in df.iterrows():
     row_data = {}
     pdc_row_data ={}
     odc_row_data ={}
     if 'PDC' in row and isinstance(row['PDC'], list):
-      pdc_row_data = process_drug_list_for_assessment('PDC', row)        
+      pdc_row_data, warnings1 = process_drug_list_for_assessment('PDC', row)
+      if warnings1:
+         warnings1.extend(warnings1)
     if 'ODC' in row and isinstance(row['ODC'], list):
-      odc_row_data = process_drug_list_for_assessment('ODC', row)
+      odc_row_data, warnings2 = process_drug_list_for_assessment('ODC', row)
+      if warnings2:
+         warnings.extend(warnings2)
     
     # merge the dicts
     row_data = pdc_row_data | odc_row_data
@@ -146,7 +163,7 @@ def normalize_pdc_odc(df):
     else:
         new_data.append({})
   expanded_data = pd.DataFrame(new_data, index=df.index)   
-  return expanded_data
+  return expanded_data, warnings
     # # Create a DataFrame from the list of dictionaries
     # expanded_data = pd.DataFrame(new_data, index=df.index)
 
@@ -158,16 +175,16 @@ def normalize_pdc_odc(df):
 
 
 
-def expand_drug_info(df1:pd.DataFrame) ->  pd.DataFrame:
+def expand_drug_info(df1:pd.DataFrame) ->  tuple[pd.DataFrame, list]:
 
   #  masked_rows=  df1[('ODC' in df1) and df1['ODC'].apply(lambda x: isinstance(x,list) and len(x) > 0 )]
-  normd_drugs_df = normalize_pdc_odc(df1)
+  normd_drugs_df, warnings = normalize_pdc_odc(df1)
     # debug: normd_drugs_df.loc[2][normd_drugs_df.loc[2].notna()]
   cloned_df = df1.join(normd_drugs_df)
     #debug : cloned_df.loc[2, [c for c in cloned_df.columns if 'Heroin_' in c]]
 
      
-  return cloned_df
+  return cloned_df, warnings
 # def expand_drug_info(df1:pd.DataFrame) ->  pd.DataFrame:
 
 #   #  masked_rows=  df1[('ODC' in df1) and df1['ODC'].apply(lambda x: isinstance(x,list) and len(x) > 0 )]

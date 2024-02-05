@@ -92,7 +92,7 @@ def prep_dataframe_nada(df:pd.DataFrame):
  
   df4 = drop_notes_by_regex(df2) # remove *Goals notes, so do before PDC step (PDCGoals dropdown)
 
-  df5 = expand_drug_info(df4)
+  df5, warnings = expand_drug_info(df4)
 
   # df51 = expand_activities_info(df5)
   df51 = nadafield_from_multiselect(df5)

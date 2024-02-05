@@ -5,7 +5,8 @@
   convert the data to the correct type.
   
 '''
-import logging 
+import logging
+import datetime 
 import pandas as pd
 from pandas.api.types import CategoricalDtype
 # import mylogging
@@ -22,6 +23,16 @@ from data_config import predef_categories,\
     # order when creating a pandas.Categorical variable, 
     # or when converting a pandas Series to categorical.
 ###############################################
+
+
+def date_to_str(date_obj: datetime.date, str_fmt='yyyymmdd') -> str:
+  if str_fmt != 'yyyymmdd':
+    raise NotImplementedError ("format not recognized")
+  return date_obj.strftime("%Y%m%d")
+    # return int(datetime.datetime.combine(date_obj, datetime.time.min).strftime("%Y%m%d"))
+
+
+
 
 def define_category_with_uniqs(df:pd.DataFrame, question:str) -> CategoricalDtype:  
   unique_list = list(df[df[question].notna()][question].unique())
