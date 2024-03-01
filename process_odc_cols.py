@@ -63,6 +63,8 @@ def get_nada_drg_category(drug_name:str) -> tuple[str, int]:
 #         qty_str = f"{qty_str}; {typical_unit} units."
 #   return qty_str, typical_qty
 
+
+
 def get_warning(item, drugname, field_name:str, assessment):  
   warning = ( assessment.PartitionKey, assessment.RowKey,         
           { drugname: item.get(drugname),
@@ -114,7 +116,7 @@ def process_drug_list_for_assessment(pdc_odc_colname:str, assessment):
     # unique_subtances.append(substance) 
     nada_drug, found_category = get_nada_drg_category (substance)
     if not found_category:
-       if not row_data  or not( 'Another Drug1'  in row_data) or pd.isna(row_data['Another Drug1']):
+       if not row_data or not( 'Another Drug1' in row_data) or pd.isna(row_data['Another Drug1']):
           row_data['Another Drug1'] = nada_drug
           nada_drug ='Another Drug1'
        else:
@@ -150,7 +152,7 @@ def normalize_pdc_odc(df):
     if 'PDC' in row and isinstance(row['PDC'], list):
       pdc_row_data, warnings1 = process_drug_list_for_assessment('PDC', row)
       if warnings1:
-         warnings1.extend(warnings1)
+         warnings.extend(warnings1)
     if 'ODC' in row and isinstance(row['ODC'], list):
       odc_row_data, warnings2 = process_drug_list_for_assessment('ODC', row)
       if warnings2:
@@ -307,6 +309,7 @@ if __name__ == "__main__":
       ]
   })
 
-  out = expand_drug_info(df)
+  out, warnings = expand_drug_info(df)
   # TODO : delete PDC and ODC columns
   print(out)
+  print(warnings)

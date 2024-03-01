@@ -46,24 +46,24 @@ def get_surveydata_expanded(df:pd.DataFrame):#, prep_type:Literal['ATOM', 'NADA'
   return df_final
 
 
-def ep_dates(raw_df:pd.DataFrame, columns:list[str])->pd.DataFrame:
-  df = raw_df.copy()
-  for col in columns:
-      if not pd.api.types.is_integer_dtype(df[col].dtype):
-        if (df[col] == '').any():
-          df[col] = df[col].replace('', 0).astype(int)
-        else:
-          df[col] = df[col].fillna(0).astype(int)
+# def ep_dates(raw_df:pd.DataFrame, columns:list[str])->pd.DataFrame:
+#   df = raw_df.copy()
+#   for col in columns:
+#       if not pd.api.types.is_integer_dtype(df[col].dtype):
+#         if (df[col] == '').any():
+#           df[col] = df[col].replace('', 0).astype(int)
+#         else:
+#           df[col] = df[col].fillna(0).astype(int)
 
-      # Convert integer to string with zero-padding to ensure length is 8
-      df[col] = df[col].astype(str).str.zfill(8)
+#       # Convert integer to string with zero-padding to ensure length is 8
+#       df[col] = df[col].astype(str).str.zfill(8)
       
-      # Reformat string to match datetime format 'ddmmyyyy' -> 'dd-mm-yyyy'
-      df[col] = df[col].apply(lambda x: f"{x[:2]}-{x[2:4]}-{x[4:]}")
+#       # Reformat string to match datetime format 'ddmmyyyy' -> 'dd-mm-yyyy'
+#       df[col] = df[col].apply(lambda x: f"{x[:2]}-{x[2:4]}-{x[4:]}")
       
-      # Convert string to datetime
-      df[col] = pd.to_datetime(df[col], format='%d-%m-%Y', errors='coerce')
-  return df  
+#       # Convert string to datetime
+#       df[col] = pd.to_datetime(df[col], format='%d-%m-%Y', errors='coerce')
+#   return df  
 
 
 
@@ -92,7 +92,7 @@ def prep_dataframe_nada(df:pd.DataFrame):
  
   df4 = drop_notes_by_regex(df2) # remove *Goals notes, so do before PDC step (PDCGoals dropdown)
 
-  df5, warnings = expand_drug_info(df4)
+  df5, warnings_aod = expand_drug_info(df4)
 
   # df51 = expand_activities_info(df5)
   df51 = nadafield_from_multiselect(df5)
@@ -112,7 +112,7 @@ def prep_dataframe_nada(df:pd.DataFrame):
   
   df9 = df7.sort_values(by="AssessmentDate")
   logging.debug(f"Done Prepping df")
-  return df9
+  return df9 , warnings_aod
 
 
 # def prep_dataframe(df:pd.DataFrame, prep_type: Literal['ATOM', 'NADA', 'Matching'] = 'ATOM'):

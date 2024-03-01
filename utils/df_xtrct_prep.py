@@ -27,7 +27,7 @@ from utils.df_ops_base import float_date_parser
 # Note:  purpose =matching :  may be ACT also 
 def extract_prep_atom_data(extract_start_date, extract_end_date                              
                       , purpose:Literal['NADA', 'Matching']='Matching') :#-> pd.DataFrame|None:
-  
+  warnings = None
   xtr_start_str = date_to_str(extract_start_date, str_fmt='yyyymmdd')
   xtr_end_str = date_to_str(extract_end_date, str_fmt='yyyymmdd')
   period_range = f"{xtr_start_str}-{xtr_end_str}"
@@ -39,7 +39,7 @@ def extract_prep_atom_data(extract_start_date, extract_end_date
   
   if not(isinstance(processed_df, type(None)) or processed_df.empty):
     logging.debug("found & returning pre-processed parquet file.")
-    return processed_df
+    return processed_df, None
   
   logging.info("No processed data found, loading from raw data.")
   
@@ -52,11 +52,11 @@ def extract_prep_atom_data(extract_start_date, extract_end_date
   
   if isinstance(raw_df, type(None)) or raw_df.empty:
     logging.error("No data found. Exiting.")
-    return None
+    return None, None
   
   # Clean and Transform the dataset
   if purpose == 'NADA':
-    processed_df = prep_dataframe_nada(raw_df)
+    processed_df, warnings = prep_dataframe_nada(raw_df)
   else:
      raise NotImplementedError("Matching prep has not yet been implemented")
     # processed_df = prep_dataframe(raw_df, prep_type=purpose) # only one filter: PDCSubstanceOrGambling has to have a value
@@ -74,7 +74,7 @@ def extract_prep_atom_data(extract_start_date, extract_end_date
   # except Exception as ae:
   #   logger.error(f"ArrowTypeError: {ae}. unable to save parquet file.")    
   # finally:
-  return processed_df
+  return processed_df, warnings
 
 
 import os

@@ -10,7 +10,7 @@ from data_config import nada_final_fields
 def prep_for_surveytxt(ep_df):
     ep_df.rename(columns={'ESTABLISHMENT_IDENTIFIER': 'AgencyCode'}, inplace=True)
 
-def prep_episodes(ep_data:list[str]):
+def prep_episodes(ep_data:list[list[str]]):
   # List of columns we care about
   columns_of_interest = ['ESTABLISHMENT IDENTIFIER', 'GEOGRAPHICAL LOCATION'
                          , 'EPISODE ID','PERSON ID', 'SPECIFY DRUG OF CONCERN'
@@ -36,11 +36,11 @@ def get_matched_assessments( episode_data
                                                             , ep_df['EndDate'])
 
     # get ATOMs from DB
-    atom_df = extract_prep_atom_data(period_start_dt, period_end_dt
+    atom_df, warnings_atom = extract_prep_atom_data(period_start_dt, period_end_dt
                                     , purpose='NADA')
     if not atom_df:
         return {
-            "result": None,
+            "result": warnings_atom,
             "result_message": "No atoms",
         }
         
@@ -50,7 +50,7 @@ def get_matched_assessments( episode_data
     # note anomalies
       # - no atoms for episode
       # - no episodes for atom    
-    matched_df, unmatched_atoms = match_increasing_slack(ep_df
+    matched_df, unmatched_atoms, errors_warnings = match_increasing_slack(ep_df
                                                          , atom_df
                                                          , episode_boundary_slack_days)
     
@@ -61,6 +61,7 @@ def get_matched_assessments( episode_data
 
 
     return {
-        "result": df_final,
+        "result": df_final,        
         "result_message": "OK",
+        "warnings": warnings_atom
     }
