@@ -1,8 +1,8 @@
 
 import logging
 import pandas as pd
-from data_config import EstablishmentID_Program
-from warnings_errors import  add_to_issue_report, IssueLevel,\
+from .data_config import EstablishmentID_Program
+from .warnings_errors import  add_to_issue_report, IssueLevel,\
          IssueType, get_outofbounds_issues, get_duplicate_issues 
 
 def prep_for_match(ep_df) -> pd.DataFrame:
@@ -25,7 +25,7 @@ def get_mask_datefit(row, slack_days=7):
     return after_commencement and before_end_date
 
 
-def match_dates_assessments_episodes(ep_atom_df, matching_ndays_slack: int):
+def match_with_dates(ep_atom_df, matching_ndays_slack: int):
     # Filter rows where AssessmentDate falls within CommencementDate and EndDate (or after CommencementDate if EndDate is NaN)
     mask = ep_atom_df.apply(get_mask_datefit, slack_days=matching_ndays_slack, axis=1)
 
@@ -91,7 +91,7 @@ def match_increasing_slack(slk_program_matched:pd.DataFrame, max_slack:int=7):
 
   while len(unmatched_by_date) > 0  and matching_ndays_slack <= max_slack:
       # Get matched assessments with the current slack
-      matched_df = match_dates_assessments_episodes(unmatched_by_date, matching_ndays_slack)
+      matched_df = match_with_dates(unmatched_by_date, matching_ndays_slack)
       duplicate_rows_df = check_atom_in_multi_episodes(matched_df)
       if not (duplicate_rows_df is None or duplicate_rows_df.empty):      
         #logging.error("Duplicate rows", duplicate_rows_df)
