@@ -11,8 +11,9 @@ class IssueLevel(Enum):
 
 class IssueType(Enum):
   DATE_MISMATCH = auto()
-  FOUND_ONLY_IN_ATOM = auto()
-  FOUND_ONLY_IN_EPISODE = auto()
+  ONLY_IN_ASSESSMENT = auto()
+  ONLY_IN_EPISODE = auto()
+  ASMT_MATCHED_MULTI = auto()
 
 class MatchingDatasetType(Enum):
   ATOM = auto()
@@ -62,8 +63,6 @@ class MatchingIssue:
     return f"{self.issue_level.name}: "
   
 
-
-# from typing import Type
 import pandas as pd
 
 
@@ -93,7 +92,7 @@ def add_to_issue_report(data:pd.DataFrame
 
 
 
-def gap_ew(df:pd.DataFrame, i_type:IssueType,\
+def create_issues(df:pd.DataFrame, i_type:IssueType,\
             i_level:IssueLevel, msg:str="")-> list[MatchingIssue]:
   metas = [AssessmentValidationMeta(client_id=item.SLK
                                   , row_key=item.RowKey
@@ -115,29 +114,55 @@ def gap_asesmtdate_epsd_boundaries(merged_df1:pd.DataFrame):
   return merged_df
 
 
+
 def get_outofbounds_issues(unmatched_df:pd.DataFrame, limit_days:int = 1):
   gaps_df = gap_asesmtdate_epsd_boundaries(unmatched_df)
   # Warning if assessment is within 3 days outside the episode boundaries
-  warning_mask = ((gaps_df['days_from_start'] < 0) & \
-                      (gaps_df['days_from_start'] >= -limit_days)) | \
-                  ((gaps_df['days_from_end'] > 0) & \
-                      (gaps_df['days_from_end'] <= limit_days))
-  # gaps_df.loc[warning_mask, 'status'] = 'Warning'
-  # Error if assessment date is more than 3 days out of the episode boundaries
-  error_mask = (gaps_df['days_from_start'] < -limit_days) | \
-                  (gaps_df['days_from_end'] > limit_days)
-  # gaps_df.loc[error_mask, 'status'] = 'Error'
+  mask_isuetype_map = [ 
+      {
+        'mask': (gaps_df['days_from_start'] < 0) & \
+                          (gaps_df['days_from_start'] >= -limit_days),
+       'message': f"Assessment date is before episode start date by fewer than {limit_days}.",
+       'issue_type':IssueLevel.WARNING
+      },
+      {
+        'mask':  (gaps_df['days_from_end'] > 0) & \
+                      (gaps_df['days_from_end'] <= limit_days),
+        'message': f"Assessment date is after episode end date by fewer than {limit_days}.",
+        'issue_type':IssueLevel.WARNING
+      },
+      {
+        'mask': (gaps_df['days_from_start'] < -limit_days) ,
+        'message': f"Assessment date is before episode start date by more than {limit_days}.",
+        'issue_type':IssueLevel.ERROR
+      },
+      {
+        'mask':  (gaps_df['days_from_end'] > limit_days) ,
+        'message': f"Assessment date is after episode end date by more than {limit_days}.",
+        'issue_type':IssueLevel.ERROR
+      }
+  ]
 
-  message = f"Assessment is out of Episode boundaries by more than {limit_days}."
-
-  warnings = gaps_df[warning_mask]  
-  i_warns = gap_ew(warnings
+  results:list[MatchingIssue] = []
+  for we in mask_isuetype_map:
+    warns_errs = gaps_df[we['mask']]
+    if len(warns_errs) > 0 :
+      matching_issues = create_issues(warns_errs
                    , i_type=IssueType.DATE_MISMATCH
-                   , i_level=IssueLevel.WARNING, msg=message)
+                   , i_level=we['issue_type'], msg=we['message'])
+      results.extend(matching_issues)
+  return results
 
-  errors = gaps_df[error_mask]  
-  i_errs = gap_ew(errors
-                  , i_type=IssueType.DATE_MISMATCH
-                  , i_level=IssueLevel.ERROR, msg=message)
-  i_warns.extend(i_errs)
-  return i_warns 
+
+def get_duplicate_issues(dfs:list[pd.DataFrame]):
+  i_t:IssueType = IssueType.ASMT_MATCHED_MULTI
+  i_l:IssueLevel = IssueLevel.ERROR
+  message = f"Assessment is matched to more than one episode."
+  results:list[MatchingIssue] = []
+  for df in dfs:
+      matching_issues = create_issues(df
+                   , i_type=i_t
+                   , i_level=i_l, msg=message)
+      results.extend(matching_issues)
+
+  return results
