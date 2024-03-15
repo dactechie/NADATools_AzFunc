@@ -14,3 +14,9 @@ def check_for_string(row: list|dict, str_to_check: str) -> bool | None:
     elif isinstance(row, dict):
         return row.get(str_to_check)
     return None
+
+def check_if_exists_in_other(one: set, two: set) -> tuple[set, set, set]:
+    only_in_one = one - two
+    only_in_two = two - one
+    in_both = one & two
+    return only_in_one, only_in_two, in_both

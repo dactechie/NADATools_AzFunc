@@ -3,6 +3,21 @@ import datetime
 import pandas as pd
 
 
+def has_data(df:pd.DataFrame|None) -> bool:
+   return not(df is None or df.empty)
+
+def get_dupes_by_key(df:pd.DataFrame, key:str):
+  
+  counts = df.groupby(key)[key].value_counts()
+  if counts.empty:
+     return None
+
+  duplicates = counts[counts > 1].index.tolist()
+  if not duplicates:
+    return None
+  return df[ df[key].isin(duplicates)]
+
+
 def get_last_day_n_months_ago(n_months_ago) -> datetime.date:
     current_date = datetime.date.today()
     first_day_of_current_month = datetime.date(current_date.year
@@ -79,7 +94,7 @@ def float_date_parser(date_val):
         return None  # or choose an appropriate default value
     
 
-def drop_fields(df:pd.DataFrame, fieldnames:list or str or tuple):
+def drop_fields(df:pd.DataFrame, fieldnames:list | str | tuple):
   df2 = df.drop(fieldnames, axis=1)
   return df2
 
@@ -101,6 +116,27 @@ def drop_notes_by_regex(df):
   # df2 = df.loc[:,~df.columns.str.contains('Comment', regex=False)  # & ~df.columns.str.contains('Note', regex=False) 
   #            ]
   return df2
+
+
+
+def merge_keys(df1:pd.DataFrame, merge_fields:list[str], separator:str='_')\
+              -> tuple[pd.DataFrame, str]:
+  """
+  Merges multiple columns from a DataFrame into a single column using '_'.
+
+  Args:
+      df (pandas.DataFrame): The DataFrame containing the columns to merge.
+      cols (list): A list of column names to be merged.
+
+  Returns:
+      pandas.DataFrame: The original DataFrame with a new column containing the merged data.
+  """  
+  df = df1.copy()
+  new_field = separator.join(merge_fields)
+  merged_col = df[merge_fields].apply(lambda x: separator.join(x.astype(str)), axis=1)
+  df[new_field] = merged_col  
+  # df[f'{field1}_{field2}'] =  df[field1] + '_' + df[field2]
+  return df, new_field
 
 
 # get PDC - it is the first/only list item in the PDC list
