@@ -1,3 +1,4 @@
+from models.categories import Purpose
 from pandas.api.types import CategoricalDtype
 
 keep_parent_fields = ['Program', 'Staff'] # if also in SurveyData 
@@ -7,11 +8,11 @@ keep_parent_fields = ['Program', 'Staff'] # if also in SurveyData
 
 ATOM_DB_filters = {
   # extract purpose
-  'NADA': {
+   Purpose.NADA : {
     'Program' : ('SAPPHIRE','EUROPATH','MONPATH','BEGAPATH'
                  ,'MURMICE','GOLBGNRL','GOLBICE','MURMPP','MURMWIO','MURMHEAD',) 
    },
-   'Matching':{}
+   Purpose.MATCHING:{}
    
   }
 # range

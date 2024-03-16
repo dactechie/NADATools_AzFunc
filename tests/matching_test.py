@@ -12,7 +12,7 @@ t = {
               'AssessmentDate':pd.to_datetime([ '2023-07-01' ])    
                }), 
         'episodes_df': pd.DataFrame({
-            'SLK':['1MidOfMyEp', '1MidOfMyEp',  ],
+            'SLK':['1MidOfMyEp', '1MidOfMyEp',],
             'Program':[ 'TSS', 'TSS'],
             'CommencementDate': pd.to_datetime([
                                                 '2023-06-01', '2023-07-01'

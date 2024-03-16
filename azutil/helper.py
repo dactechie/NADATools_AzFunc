@@ -24,7 +24,7 @@ from .az_tables_query import SampleTablesQuery
 
 table_config = {
   'ATOM':{
-       "fields": [u"PartitionKey", u"RowKey", u"Program", u"Staff", u"SurveyName", u"SurveyData"],
+       "fields": [u"PartitionKey", u"RowKey", u"Program", u"AssessmentDate", u"Staff", u"SurveyName", u"SurveyData"],
        
        "filter":  u"AssessmentDate ge @lower and AssessmentDate lt @upper and IsActive eq 1 and Program ne 'TEST' and Status eq 'Complete'"
   },

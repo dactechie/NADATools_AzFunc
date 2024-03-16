@@ -93,11 +93,11 @@ def write_results_to_files(all_results, results_filename):# filters:dict = {}):
 #     for row in results:
 #       writer.writerow(row.values())
 
-def read_parquet(file_path:str) -> pd.DataFrame|None:
+def read_parquet(file_path:str) -> pd.DataFrame:
   if os.path.exists(file_path):
     df = pd.read_parquet(file_path)
     return df
-  return None
+  return pd.DataFrame()
 
 def write_parquet(df:pd.DataFrame, file_path:str, force=False) -> pd.DataFrame|None:
   pathdirs_without_fname = file_path.split("/")[:-1]
@@ -110,7 +110,8 @@ def write_parquet(df:pd.DataFrame, file_path:str, force=False) -> pd.DataFrame|N
  
 
 #TODO : store /load parquet file from file/blob storage
-def get_data(table:str, start_date:int, end_date:int, download_filepath:str, filters:dict|None={}, cache=False) -> pd.DataFrame|None:
+def get_data(table:str, start_date:int, end_date:int
+             , download_filepath:str, filters:dict|None={}, cache=False) -> pd.DataFrame:
   #
   # get from ATOM Azure DB and save to disk
   #
@@ -125,7 +126,7 @@ def get_data(table:str, start_date:int, end_date:int, download_filepath:str, fil
   results = get_results(table, start_date, end_date, filters)
   if not results:
     logging.error("Zero results returned from get_results (backend)")
-    return None
+    return pd.DataFrame()
   
   df = pd.DataFrame.from_records(results)
   df.to_parquet(f"{download_filepath}")
