@@ -67,7 +67,7 @@ def blank_to_today_str(x):
 def parse_date(date_str, format='%d%m%Y'):
     if not date_str:
       return None
-    return datetime.strptime(str(int(date_str)), format).date()
+    return datetime.strptime(date_str, format).date()
 # def str_to_date(date_str: str, str_fmt='ddmmyyyy') -> date:
 #   if str_fmt != 'ddmmyyyy':
 #     raise NotImplementedError ("format not recognized")
