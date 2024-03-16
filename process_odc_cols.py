@@ -66,7 +66,7 @@ def get_nada_drg_category(drug_name:str) -> tuple[str, int]:
 
 
 def get_warning(item, drugname, field_name:str, assessment):  
-  warning = ( assessment.PartitionKey, assessment.RowKey,         
+  warning = ( assessment.SLK, assessment.RowKey,         
           { drugname: item.get(drugname),
            'InvalidValue': item.get(field_name), 'InvalidFieldName': field_name}
   )

@@ -1,7 +1,7 @@
 import pandas as pd
-from .mytypes import DataKeys as dk, ValidationIssue,\
- IssueType, ValidationError, ValidationWarning,\
-       ValidationIssueTuple
+from .mytypes import DataKeys as dk,\
+      IssueType, ValidationError
+      #  ValidationIssueTuple
 import utils.df_ops_base as utdf
 from utils import base as utbase
 import matching.date_checks as dtchk
@@ -31,6 +31,7 @@ def setup_df_for_check(episode_df: pd.DataFrame, \
     return ep_df, as_df, key
 
 
+# TODO: refactor with df_ops_base.get_lr_mux_unmatched
 def check_keys(episode_df: pd.DataFrame, assessment_df: pd.DataFrame, k_tup: tuple):
     
     epdf_mkey, asdf_mkey, key = setup_df_for_check(episode_df,assessment_df, k_tup)
@@ -64,12 +65,21 @@ def merge_datasets(episode_df, assessment_df, lr_cols=\
     return merged_df, unique_key
 
 
-def check_dates(merged_df: pd.DataFrame, unique_key:str):
+from matching import increasing_slack as mis
+# def match_dates_increasing_slack(
+#       slk_program_matched:pd.DataFrame
+#       , max_slack:int=7):
+def perform_date_matches(merged_df: pd.DataFrame, unique_key:str):
     
 
     mask_isuetype_map = dtchk.date_boundary_validators(limit_days=mismatch_slack_limit)
     # validation_issues, matched_df, invalid_indices =
     validation_issues, good_df, ew_df = dtchk.all_date_validations(merged_df, mask_isuetype_map, unique_key)
+
+    # include all the warnings in the good_Df using matching with increasing slack
+    result_matched_df, unmatched_by_date, duplicate_rows_dfs = \
+      mis.match_dates_increasing_slack (ew_df , max_slack=mismatch_slack_limit)
+
     print(validation_issues)
     return validation_issues, good_df, ew_df
 
@@ -106,6 +116,7 @@ def add_client_issues(only_in_ep, only_in_as, mkey):
     validation_issues.extend(vis)
   return validation_issues, full_ew_df
 
+
 def filter_good_bad(episode_df: pd.DataFrame, assessment_df: pd.DataFrame):
     validation_issues = []
     full_ew_df = pd.DataFrame()
@@ -114,7 +125,7 @@ def filter_good_bad(episode_df: pd.DataFrame, assessment_df: pd.DataFrame):
     only_in_ep, only_in_as, ep_df_inboth, as_df_inboth, mkey = check_keys(
         episode_df, assessment_df, k_tup=keys_to_check[0]
     )
-    if any(only_in_ep) or  any(only_in_as):
+    if any(only_in_ep) or any(only_in_as):
       vis, ew_df = add_client_issues(only_in_ep, only_in_as, mkey)
       validation_issues.extend(vis)
       full_ew_df = pd.concat([full_ew_df, ew_df] , ignore_index=True)
@@ -122,7 +133,7 @@ def filter_good_bad(episode_df: pd.DataFrame, assessment_df: pd.DataFrame):
     only_in_ep, only_in_as, ep_df_inboth, as_df_inboth, mkey = check_keys(
         ep_df_inboth, as_df_inboth, k_tup=keys_to_check[1]
     )
-    if any(only_in_ep) or  any(only_in_as):
+    if any(only_in_ep) or any(only_in_as):
       vis, ew_df = add_client_issues(only_in_ep, only_in_as, mkey)
       validation_issues.extend(vis)
       full_ew_df = pd.concat([full_ew_df, ew_df] , ignore_index=True)
@@ -133,11 +144,11 @@ def filter_good_bad(episode_df: pd.DataFrame, assessment_df: pd.DataFrame):
 
     #TODO: for the in_both , do the time-boundaries check
     merged_df, unique_key = merge_datasets(ep_df_inboth, as_df_inboth) #IDMK
-    date_validation_issues, good_df, dates_ew_df = check_dates(merged_df, unique_key)
+    date_validation_issues, good_df, dates_ew_df = perform_date_matches(merged_df, unique_key)
     if utdf.has_data(dates_ew_df):
         validation_issues.extend(date_validation_issues)
         full_ew_df = pd.concat([full_ew_df, dates_ew_df], ignore_index=True)
-        
+
     return validation_issues, good_df, full_ew_df
 
     # TODO: collect all errors and warnings

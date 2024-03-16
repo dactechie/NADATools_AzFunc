@@ -3,6 +3,7 @@ import logging
 import pandas as pd
 
 from data_config import keep_parent_fields, mulselect_option_to_nadafield
+from models.categories import Purpose
 from utils.base import check_for_string
 from utils.dtypes import convert_dtypes
 from utils.df_ops_base import concat_drop_parent, \
@@ -28,13 +29,14 @@ def limit_clients_active_inperiod(df, start_date, end_date):
   return df_active_clients
 
 
-def get_surveydata_expanded(df:pd.DataFrame):#, prep_type:Literal['ATOM', 'NADA', 'Matching'] ) -> pd.DataFrame: 
+def get_surveydata_expanded(df:pd.DataFrame, prep_type:Purpose):#, prep_type:Literal['ATOM', 'NADA', 'Matching'] ) -> pd.DataFrame: 
   # https://dschoenleber.github.io/pandas-json-performance/
   
   logging.debug("\t get_surveydata_expanded")
 
   df_surveydata = df['SurveyData'].apply(clean_and_parse_json)
   df_surveydata_expanded:pd.DataFrame =  pd.json_normalize(df_surveydata.tolist(), max_level=1)
+  df_surveydata_expanded = df_surveydata_expanded[['ClientType', 'PDC']]
   
   if keep_parent_fields:
     existing_columns_to_remove = [col for col in keep_parent_fields 
@@ -85,10 +87,22 @@ def convert_true_falsefields(df1, field_names):
   return transform_multiple(df1, field_names,to_num_bool_none)
 
 
+def prep_dataframe_matching(df:pd.DataFrame):
+
+  logging.debug(f"prep_dataframe of length {len(df)} : ")
+  df2 = get_surveydata_expanded(df.copy(),  Purpose.MATCHING)
+
+  df5, warnings_aod = expand_drug_info(df2)
+  return df5, warnings_aod
+
+                 
+
+
+
 def prep_dataframe_nada(df:pd.DataFrame):
 
   logging.debug(f"prep_dataframe of length {len(df)} : ")
-  df2 = get_surveydata_expanded(df.copy())
+  df2 = get_surveydata_expanded(df.copy(), Purpose.NADA)
  
   df4 = drop_notes_by_regex(df2) # remove *Goals notes, so do before PDC step (PDCGoals dropdown)
 

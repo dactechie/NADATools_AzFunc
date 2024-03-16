@@ -40,6 +40,13 @@ class ValidationIssue(Exception):
   def make_copy(self):
     return ValidationIssue(self.msg, self.issue_type,self.issue_level, self.key)
   
+  def to_dict(self):
+      return {
+          "msg": self.msg,
+          "issue_type": self.issue_type.name,
+          "issue_level": self.issue_level.name,
+          "key": self.key
+      }
 
 @dataclass(kw_only=True)
 class ValidationError(ValidationIssue):

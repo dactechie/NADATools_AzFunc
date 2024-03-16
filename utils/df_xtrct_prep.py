@@ -2,16 +2,28 @@
 #from typing import TYPE_CHECKING
 #if TYPE_CHECKING:
 # import os
+import pandas as pd
+from datetime import datetime
 from utils.dtypes import date_to_str
-# from datetime import date
-from typing import Literal
+
 # import mylogger
 import logging
+
 from utils.io import get_data, read_parquet, write_parquet, read_csv_to_dataframe
-from data_prep import prep_dataframe_nada \
-      , limit_clients_active_inperiod #, prep_dataframe_episodes
+from data_prep import limit_clients_active_inperiod #, prep_dataframe_episodes
 from data_config import  ATOM_DB_filters 
-from utils.df_ops_base import float_date_parser
+from utils.df_ops_base import float_date_parser, has_data
+from utils.dtypes import convert_to_datetime, parse_date
+from models.categories import Purpose
+from configs import episodes as EpCfg
+
+from data_config import EstablishmentID_Program
+
+
+def filter_by_purpose(df:pd.DataFrame, filters:dict|None) -> pd.DataFrame:
+  if not filters:
+     return df
+  return df[df ['Program'].isin(filters['Program'])]
 
 # logger = mylogger.get(__name__)
 
@@ -25,9 +37,14 @@ from utils.df_ops_base import float_date_parser
 #   - caching the processed version
 
 # Note:  purpose =matching :  may be ACT also 
-def extract_prep_atom_data(extract_start_date, extract_end_date                              
-                      , purpose:Literal['NADA', 'Matching']='Matching') :#-> pd.DataFrame|None:
-  warnings = None
+"""
+  returns processed (cached) or un_processed data 
+  if returning processed data, the 2nd param is True
+"""
+def extract_atom_data(extract_start_date, extract_end_date                              
+                            , purpose:Purpose) -> tuple[pd.DataFrame, bool] :
+  # warnings = None
+  is_processed = False
   xtr_start_str = date_to_str(extract_start_date, str_fmt='yyyymmdd')
   xtr_end_str = date_to_str(extract_end_date, str_fmt='yyyymmdd')
   period_range = f"{xtr_start_str}-{xtr_end_str}"
@@ -39,26 +56,33 @@ def extract_prep_atom_data(extract_start_date, extract_end_date
   
   if not(isinstance(processed_df, type(None)) or processed_df.empty):
     logging.debug("found & returning pre-processed parquet file.")
-    return processed_df, None
+    return processed_df, True
   
   logging.info("No processed data found, loading from raw data.")
   
-  filters = ATOM_DB_filters[purpose]
+  
+  # cache data for all programs
   raw_df = get_data('ATOM'
                     ,int(xtr_start_str), int(xtr_end_str)
-                    , f"./data/in/atom_{purpose}_{period_range}.parquet"
-                    ,filters=filters
+                    , f"./data/in/atom_{period_range}.parquet"
+                    ,filters=None
                     , cache=True)
+  
+  if not has_data(raw_df):
+     return pd.DataFrame(), is_processed
+     
+ 
+  raw_df = filter_by_purpose(raw_df, ATOM_DB_filters[purpose])
   
   if isinstance(raw_df, type(None)) or raw_df.empty:
     logging.error("No data found. Exiting.")
-    return None, None
+    return pd.DataFrame(), is_processed
   
-  # Clean and Transform the dataset
-  if purpose == 'NADA':
-    processed_df, warnings = prep_dataframe_nada(raw_df)
-  else:
-     raise NotImplementedError("Matching prep has not yet been implemented")
+  raw_df['AssessmentDate'] = convert_to_datetime(raw_df['AssessmentDate'], format='%Y%m%d')
+  
+  return raw_df, is_processed
+
+  # TODO: getting an error when caching processed results
     # processed_df = prep_dataframe(raw_df, prep_type=purpose) # only one filter: PDCSubstanceOrGambling has to have a value
     
   # if active_clients_start_date and active_clients_end_date:
@@ -74,11 +98,7 @@ def extract_prep_atom_data(extract_start_date, extract_end_date
   # except Exception as ae:
   #   logger.error(f"ArrowTypeError: {ae}. unable to save parquet file.")    
   # finally:
-  return processed_df, warnings
 
-
-import os
-import pandas as pd
 
 
 def cols_prep(source_df, dest_columns, fill_new_cols) -> pd.DataFrame:
@@ -120,36 +140,112 @@ column_names = ['ESTABLISHMENT IDENTIFIER', 'GEOGRAPHICAL LOCATION', 'PMSEpisode
 #            , REFERRAL_TO_ANOTHER_SERVICE
 #            , SLK
 
+# columns_of_interest = ['ESTABLISHMENT IDENTIFIER', 'GEOGRAPHICAL LOCATION'
+#                          , 'EPISODE ID','PERSON ID', 'SPECIFY DRUG OF CONCERN'
+#                         #  , 'PRINCIPAL DRUG OF CONCERN'
+#                          , 'START DATE', 'END DATE', 'SLK']
+# rename_columns = {
+#       'SPECIFY DRUG OF CONCERN': 'PDCSubstanceOfConcern',
+#    #   'PRINCIPAL DRUG OF CONCERN': 'PDCCode',
+#       'START DATE': 'CommencementDate', 'END DATE': 'EndDate',
+#       'EPISODE ID': 'PMSEpisodeID', 'PERSON ID': 'PMSPersonID',    
+#     }
+# date_cols=['START DATE', 'END DATE']
 
-#Please use 'date_format' instead, or read your data in as 'object' dtype and then call 'to_datetime'.  
-def df_from_list(data, rename_columns
-                   , columns_of_interest:list[str]
-                   , date_cols:list[str]) -> pd.DataFrame:
+
+def prep_episodes(ep_df1:pd.DataFrame) -> pd.DataFrame:
+
+  ep_df = ep_df1[EpCfg.columns_of_interest].copy()
+  ep_df['Program'] = ep_df['ESTABLISHMENT IDENTIFIER'].map(EstablishmentID_Program)
+  ep_df[EpCfg.date_cols] = ep_df[EpCfg.date_cols] \
+                            .apply(lambda x: x.apply(parse_date))
+  ep_df.rename(columns=EpCfg.rename_columns
+            , inplace=True)
+  return ep_df
+
   
-    # Splitting each string into a list of values
-    # split_data = [row.split(',') for row in data]
 
-    # Extracting the header (first row) and the data (rest of the rows)
-    headers = data[0]
-    data_rows = data[1:]
+# def skip_rows(data:list[list[str]]):
+#   a = False
+#   i = 0 
+#   if not data:
+#      logging.error("data is empty")
+#      return data
+#   while not a:
+#     arr = data[i]
+#     print(arr)
+#     if isinstance(arr, list) and  len(arr) == len(column_names):
+#       a = True 
+#     if i > 10:
+#       msg = "expected to get data before the 10th row"
+#       logging.error(msg)
+#       raise Exception(msg)
+#     i = i + 1
 
-    # Creating a DataFrame
-    df = pd.DataFrame(data_rows, columns=headers)
-    # c = [c.replace(' ','_') for c in columns_of_interest]
-    df = df[columns_of_interest]
+#   return data[i-1:]
 
-    # dt_cols = [c.replace(' ','_') for c in date_cols]
-    for dtcol in date_cols:
-       df.loc[:,dtcol] = df[dtcol].apply(float_date_parser)
+# #Please use 'date_format' instead, or read your data in as 'object' dtype and then call 'to_datetime'.  
+# def df_from_list(data, rename_columns
+#                    , columns_of_interest:list[str]
+#                    , date_cols:list[str]) -> pd.DataFrame:
+  
+#     # Splitting each string into a list of values
+#     # split_data = [row.split(',') for row in data]
+
+#     # Extracting the header (first row) and the data (rest of the rows)
+#     data = skip_rows(data)
+#     headers = data[0]
+#     print(headers)
+#     # print(headers.split(','))
+#     data_rows = data[1:]
+#     print(data_rows)
+#     # print('dr splot', data_rows.split(','))
+#     # Creating a DataFrame
+#     df = pd.DataFrame(data_rows, columns=headers)
+#     # c = [c.replace(' ','_') for c in columns_of_interest]
+#     df = df[columns_of_interest]
+#     df = df[df['EPISODE ID'].notna()] # the csv import can have a last row -like
+#             #'---------------------------726359919940929805'
+
+#     # dt_cols = [c.replace(' ','_') for c in date_cols]
+#     for dtcol in date_cols:
+#        df.loc[:,dtcol] = df[dtcol].apply(float_date_parser)
        
-    df.rename(columns=rename_columns, inplace=True)
+#     df.rename(columns=rename_columns, inplace=True)
   
-    # df['CommencementDate'] = pd.to_datetime(df['CommencementDate'], format='%d%m%Y')
-    # df['EndDate'] = pd.to_datetime(df['EndDate'], format='%d%m%Y')    
-    return df
+#     # df['CommencementDate'] = pd.to_datetime(df['CommencementDate'], format='%d%m%Y')
+#     # df['EndDate'] = pd.to_datetime(df['EndDate'], format='%d%m%Y')    
+#     return df
 
 
-# def load_and_parse_episode_csvs(directory):
+# # def load_and_parse_episode_csvs(directory):
+# #     # List to hold dataframes
+# #     dfs = []
+    
+# #     # Loop over all files in the directory
+# #     for filename in os.listdir(directory):
+# #         # Check if the file is a CSV
+# #         if not filename.endswith('.csv'):
+# #             continue
+# #         filepath = os.path.join(directory, filename)
+# #         try:
+# #           df = load_and_parse_csv(filepath)
+# #         except ValueError as e:
+# #             logger.error(f"Error parsing dates in file {filepath} with error {str(e)}")
+# #             # logger.error("The problematic row is:")
+
+            
+# #             continue  # Skip this file and move to the next one
+
+# #         # Append the dataframe to the list
+# #         dfs.append(df)
+    
+# #     # Concatenate all dataframes in the list
+# #     final_df = pd.concat(dfs, ignore_index=True)
+
+# #     return final_df
+
+# def load_and_parse_episode_csvs(directory, columns_of_interest):
 #     # List to hold dataframes
 #     dfs = []
     
@@ -157,17 +253,21 @@ def df_from_list(data, rename_columns
 #     for filename in os.listdir(directory):
 #         # Check if the file is a CSV
 #         if not filename.endswith('.csv'):
-#             continue
+#           continue
 #         filepath = os.path.join(directory, filename)
+#         # Load the CSV
+#         df = pd.read_csv(filepath, header=None, names=column_names)
+#         # Select only the columns we care about
+#         df = df[columns_of_interest]
+#         # Try to convert CommencementDate and EndDate columns to datetime format
 #         try:
-#           df = load_and_parse_csv(filepath)
+#             df['CommencementDate'] = pd.to_datetime(df['CommencementDate'], format='%d%m%Y',errors='coerce')
+#             df['EndDate'] = pd.to_datetime(df['EndDate'], format='%d%m%Y', errors='coerce')
 #         except ValueError as e:
-#             logger.error(f"Error parsing dates in file {filepath} with error {str(e)}")
-#             # logger.error("The problematic row is:")
-
-            
+#             logging.error(f"Error parsing dates in file {filename} with error {str(e)}")
+#             logging.error("The problematic row is:")
+#             logging.error(df.iloc[-1])
 #             continue  # Skip this file and move to the next one
-
 #         # Append the dataframe to the list
 #         dfs.append(df)
     
@@ -175,34 +275,3 @@ def df_from_list(data, rename_columns
 #     final_df = pd.concat(dfs, ignore_index=True)
 
 #     return final_df
-
-def load_and_parse_episode_csvs(directory, columns_of_interest):
-    # List to hold dataframes
-    dfs = []
-    
-    # Loop over all files in the directory
-    for filename in os.listdir(directory):
-        # Check if the file is a CSV
-        if not filename.endswith('.csv'):
-          continue
-        filepath = os.path.join(directory, filename)
-        # Load the CSV
-        df = pd.read_csv(filepath, header=None, names=column_names)
-        # Select only the columns we care about
-        df = df[columns_of_interest]
-        # Try to convert CommencementDate and EndDate columns to datetime format
-        try:
-            df['CommencementDate'] = pd.to_datetime(df['CommencementDate'], format='%d%m%Y',errors='coerce')
-            df['EndDate'] = pd.to_datetime(df['EndDate'], format='%d%m%Y', errors='coerce')
-        except ValueError as e:
-            logging.error(f"Error parsing dates in file {filename} with error {str(e)}")
-            logging.error("The problematic row is:")
-            logging.error(df.iloc[-1])
-            continue  # Skip this file and move to the next one
-        # Append the dataframe to the list
-        dfs.append(df)
-    
-    # Concatenate all dataframes in the list
-    final_df = pd.concat(dfs, ignore_index=True)
-
-    return final_df

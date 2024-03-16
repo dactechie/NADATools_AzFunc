@@ -1,16 +1,59 @@
 
 import io
-import csv
-# import urllib.parse
+import re
+
+import pandas as pd
 from .InputFileErrors \
-      import (InputFilenameFormatError, TooSmallFileError)
+      import TooSmallFileError
+from utils.dtypes import blank_to_today_str
 # from .MDSValidator.AOD_MDS.constants import program_domain_map
-
 # programs = program_domain_map.keys()
+# FILENAME_MIN_LENGTH = 14
 
-FILENAME_MIN_LENGTH = 14
+def get_csv_content(req_body):
+   # Find the boundary string
+    boundary_pattern = r'--+([^\r\n]+)'
+    boundary_match = re.search(boundary_pattern, req_body)
+    if boundary_match:
+        boundary = '--' + boundary_match.group(1)
+    else:
+      return None
+     # Split the request body by the boundary string
+    parts = req_body.split(boundary)
+
+    # Find the part that contains the CSV content
+    for part in parts:
+        if 'filename=' in part:
+            csv_content = part.split('\r\n\r\n')[1]
+            break
+    return csv_content
+
+
+def get_df_from_reqbody(request_body) -> pd.DataFrame:
+
+  req_body_len = len(request_body)
+
+  if req_body_len < 500:
+    msg = 'Insufficient data. quitting...'
+    raise TooSmallFileError( req_body_len, msg )
+
+  data_str = request_body.decode('utf-8',errors='ignore')
+  csv_content = get_csv_content(data_str)
+  df = pd.read_csv(io.StringIO(csv_content),
+                    dtype=str,
+                    header=0                   
+                   )
+  df.dropna(subset=['START DATE'], inplace=True)
+  df['END DATE'] = df['END DATE'].apply(lambda x: blank_to_today_str(x))
+  
+  if len(df) < 2:
+    msg = 'Insufficient data. quitting...'
+    raise TooSmallFileError( req_body_len, msg )
+    
+  return df
 
 def get_data(req):
+  import csv
   request_body = req.get_body()
   req_body_len = len(request_body)
 

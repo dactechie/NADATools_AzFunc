@@ -6,7 +6,7 @@
   
 '''
 import logging
-import datetime 
+from datetime import datetime, date
 import pandas as pd
 from pandas.api.types import CategoricalDtype
 # import mylogging
@@ -25,13 +25,54 @@ from data_config import predef_categories,\
 ###############################################
 
 
-def date_to_str(date_obj: datetime.date, str_fmt='yyyymmdd') -> str:
+def make_serializable(df1:pd.DataFrame, date_cols:list[str]) -> pd.DataFrame:
+  df = df1.copy()
+  # df[date_cols] = df[date_cols].applymap(lambda x: x.strftime('%Y-%m-%d') 
+  #                                         if isinstance(x, pd.Timestamp) else x)
+  
+  df[date_cols] = df[date_cols].apply(lambda col: col.map(lambda x: x.strftime('%Y-%m-%d') if isinstance(x, pd.Timestamp) else x))
+
+  df = df.astype(str)
+  return df
+
+
+# if __name__ == "__main__":
+#     # Create a DataFrame with some sample data
+#   data = {
+#       'ID': [1, 2, 3, 4],
+#       'Name': ['Alice', 'Bob', 'Charlie', 'David'],
+#       'Age': [25, 30, 35, 40],
+#       'Start_Date': [date(2020, 1, 1), date(2020, 2, 15), date(2020, 3, 10), date(2020, 4, 5)],
+#       'End_Date': [date(2022, 1, 1), date(2023, 2, 15), None, date(2024, 4, 5)]
+#   }
+
+#   # Create DataFrame
+#   test_df = pd.DataFrame(data)
+#   cols = ['Start_Date','End_Date' ]
+#   s = make_serializable (test_df, cols)
+#   print(test_df)
+
+def date_to_str(date_obj: date, str_fmt='yyyymmdd') -> str:
   if str_fmt != 'yyyymmdd':
     raise NotImplementedError ("format not recognized")
   return date_obj.strftime("%Y%m%d")
+
+
+# Define a function to convert blanks to today's date
+def blank_to_today_str(x):
+    if pd.isnull(x)  or x.strip() == 'NaN' or x.strip() == '':
+        return datetime.now().strftime('%d%m%Y')
+    return x
+
+def parse_date(date_str, format='%d%m%Y'):
+    if not date_str:
+      return None
+    return datetime.strptime(str(int(date_str)), format).date()
+# def str_to_date(date_str: str, str_fmt='ddmmyyyy') -> date:
+#   if str_fmt != 'ddmmyyyy':
+#     raise NotImplementedError ("format not recognized")
+#   return datetime.strptime(date_str, '%d%m%Y').date()
     # return int(datetime.datetime.combine(date_obj, datetime.time.min).strftime("%Y%m%d"))
-
-
 
 
 def define_category_with_uniqs(df:pd.DataFrame, question:str) -> CategoricalDtype:  
@@ -65,9 +106,10 @@ def define_all_categories(df:pd.DataFrame):
   
 ###############################################
 
-def convert_to_datetime(df, column_names:list[str]|str):
+def convert_to_datetime(series:pd.Series, format:str='%Y%m%d') -> pd.Series:
 
-  df [column_names] = pd.to_datetime(df[column_names], errors='coerce')
+  # df [column_names] =
+  return pd.to_datetime(series , format=format, errors='coerce').dt.date
 
 """
       # fix_variants       
@@ -115,7 +157,8 @@ def convert_dtypes(df1):
   logging.debug(f"convert_dtypes")
   df = df1.copy()
   
-  convert_to_datetime(df,'AssessmentDate') # TODO : DOB
+  # common to matchng and NADA, so moving from here
+  # convert_to_datetime(df,'AssessmentDate') # TODO : DOB
   
   df1 = fix_variants(df) # Smokes -> Smoke   # NOT FOR NADA
   df2 = fix_numerics(df1)
