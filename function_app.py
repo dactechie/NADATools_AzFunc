@@ -16,10 +16,10 @@ from utils.dtypes import make_serializable
 from data_prep import prep_dataframe_matching
 # from matching.matching import  setup_ep_mergekey,prep_assmt_4match
 
-
+from datetime import date
 
 app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
-MyEnvironmentConfig().setup('local')
+MyEnvironmentConfig().setup('prod')
 """
   - see full documentation here __ TODO: add docus
   - triggered when a sharepoint file is dropped in folder: ___ TODO: specify __
@@ -116,8 +116,11 @@ def EpisodeAssessmentMatching(req: func.HttpRequest) -> func.HttpResponse:
         ep_df = prep_episodes(ep_df)
         # ep_df = merge_keys(ep_df, merge_fields=['SLK', 'Program'])
         
-        period_start_dt, period_end_dt = get_firststart_lastend(ep_df['CommencementDate']
-                                                                  , ep_df['EndDate'])        
+        period_start_dt, period_end_dt = date(2020,1,6), date(2024,3,17)  # atom_20200106-20240317
+        #get_firststart_lastend(ep_df['CommencementDate']#   , ep_df['EndDate'])
+        
+        
+        
         atom_df, is_processed = extract_atom_data(period_start_dt, period_end_dt
                                           , purpose=purpose)# NADA->NSW Programs only
         if not has_data(atom_df):
@@ -128,20 +131,21 @@ def EpisodeAssessmentMatching(req: func.HttpRequest) -> func.HttpResponse:
           atom_df, warnings = prep_dataframe_matching(atom_df)
           # atom_df = merge_keys(atom_df, merge_fields=['SLK', 'RowKey'])  
         validation_issues, good_df, ew_df = filter_good_bad(ep_df, atom_df)
+                
+        ew_df_srlzbl = make_serializable(ew_df, ['CommencementDate', 'EndDate'])
 
-        # result_dicts = data
-        # df_matched, all_ew, has_error, is_processed = get_matched_assessments(ep_df, for_matching # prep df types
-        #                                        , episode_boundary_slack_days, warning_limit_days)
-        # #                                           nostrict=False)
         if not has_data(good_df):
-           results = json.dumps({'error': 'No matches found'})
-           return func.HttpResponse(body=results, mimetype="application/json", status_code=400)
-        # if not is_processed:
-        good_df_str_dates = make_serializable(good_df, ['CommencementDate', 'EndDate'])
+          #  results = json.dumps({'error': 'No matches found'})
+          result_type = "No matches found"
         
-        results = json.dumps({ "result_type":"matches"
-                                ,"result_data": good_df_str_dates.to_dict()
-                                , "errors" : [v.to_dict() for v in validation_issues]
+        else:
+          good_df_srlzbl  = make_serializable(good_df, ['CommencementDate', 'EndDate', 'AssessmentDate'])
+          result_type = f"{len(good_df)} good results."
+                
+        results = json.dumps({ "result_type":result_type
+                                , "matches": good_df_srlzbl.to_dict()
+                                ,"result_data": ew_df_srlzbl.to_dict()
+                                ,"errors" : [v.to_dict() for v in validation_issues]
                           })
 
         return func.HttpResponse(body=results,

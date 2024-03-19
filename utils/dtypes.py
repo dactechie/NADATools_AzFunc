@@ -11,7 +11,8 @@ import pandas as pd
 from pandas.api.types import CategoricalDtype
 # import mylogging
 from data_config import predef_categories,\
-    question_list_for_categories, data_types, option_variants #, remove_if_under_threshold
+    question_list_for_categories, data_types, option_variants
+from utils.df_ops_base import has_data #, remove_if_under_threshold
 
 # from utils.fromstr import range_average
 
@@ -26,6 +27,9 @@ from data_config import predef_categories,\
 
 
 def make_serializable(df1:pd.DataFrame, date_cols:list[str]) -> pd.DataFrame:
+  if not has_data(df1):
+    return pd.DataFrame()
+  
   df = df1.copy()
   # df[date_cols] = df[date_cols].applymap(lambda x: x.strftime('%Y-%m-%d') 
   #                                         if isinstance(x, pd.Timestamp) else x)
@@ -67,7 +71,7 @@ def blank_to_today_str(x):
 def parse_date(date_str, format='%d%m%Y'):
     if not date_str:
       return None
-    return datetime.strptime(date_str, format).date()
+    return datetime.strptime(date_str.zfill(8), format).date()
 # def str_to_date(date_str: str, str_fmt='ddmmyyyy') -> date:
 #   if str_fmt != 'ddmmyyyy':
 #     raise NotImplementedError ("format not recognized")

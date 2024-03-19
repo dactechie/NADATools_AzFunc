@@ -1,6 +1,6 @@
 import logging
 import pandas as pd
-
+from  matching.mytypes import DataKeys as dk
 from utils.df_ops_base import get_dupes_by_key, has_data
 
 def get_mask_datefit(row, slack_days=7):
@@ -12,11 +12,11 @@ def get_mask_datefit(row, slack_days=7):
     return after_commencement and before_end_date
 
 
-def match_with_dates(ep_atom_df, matching_ndays_slack: int):
+def match_with_dates(ep_atom_df:pd.DataFrame, matching_ndays_slack: int):
     # Filter rows where AssessmentDate falls within CommencementDate and EndDate (or after CommencementDate if EndDate is NaN)
-    mask = ep_atom_df.apply(get_mask_datefit, slack_days=matching_ndays_slack, axis=1)
+    filtered_series = ep_atom_df.apply(get_mask_datefit, slack_days=matching_ndays_slack, axis=1)
 
-    filtered_df = ep_atom_df[mask]
+    filtered_df = ep_atom_df[filtered_series]
     
     return filtered_df
 
@@ -25,6 +25,7 @@ def match_dates_increasing_slack(
       slk_program_matched:pd.DataFrame
       , max_slack:int=7):
   matching_ndays_slack = 0 
+  asmt_key = dk.assessment_id.value
   unmatched_by_date = slk_program_matched
   result_matched_dfs = []
   result_matched_df = pd.DataFrame()
@@ -39,7 +40,8 @@ def match_dates_increasing_slack(
       # Get matched assessments with the current slack
       matched_df = match_with_dates(unmatched_by_date, matching_ndays_slack)
       
-      duplicate_rows_df = get_dupes_by_key(matched_df, 'SLK_Program_y')
+      duplicate_rows_df = get_dupes_by_key(matched_df, asmt_key)
+                                          #  'SLK_Program_y')
       # y because during the merge , assmt df is on the right (so not x)
       # this checks if there ATOMs matching to multiple episodes
 
@@ -56,7 +58,7 @@ def match_dates_increasing_slack(
       # Add the matched DataFrame to the list
       result_matched_dfs.append(matched_df)
 
-      unmatched_by_date = unmatched_by_date[~unmatched_by_date.SLK_Program_y.isin(matched_df.SLK_Program_y)]
+      unmatched_by_date = unmatched_by_date[~unmatched_by_date[asmt_key].isin(matched_df[asmt_key])]
 
       ## there may be other assessments for this SLK that can match if the slack dways are increased
       ## don't exclude the SLK, but the SLK +RowKey
@@ -75,4 +77,13 @@ def match_dates_increasing_slack(
     result_matched_df = pd.concat(result_matched_dfs, ignore_index=True)
   
   # add_to_issue_report(unmatched_by_date, IssueType.DATE_MISMATCH, IssueLevel.ERROR)
-  return result_matched_df, unmatched_by_date, duplicate_rows_dfs
+  mask_matched_eps = slk_program_matched.PMSEpisodeID.isin(result_matched_df.PMSEpisodeID)
+  unmatched_episodes = slk_program_matched[~mask_matched_eps] \
+                        [['PMSEpisodeID', 'SLK','Program']].drop_duplicates()
+  
+  result_matched_df = result_matched_df.drop_duplicates(subset=[asmt_key])
+
+  #remove if matched to episodes #TODO TEST ME 
+  unmatched_by_date = unmatched_by_date[unmatched_by_date.PMSEpisodeID.isin(result_matched_df.PMSEpisodeID)]
+
+  return result_matched_df, unmatched_by_date, duplicate_rows_dfs, unmatched_episodes

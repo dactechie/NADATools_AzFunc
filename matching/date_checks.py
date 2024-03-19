@@ -80,8 +80,17 @@ def gap_asesmtdate_epsd_boundaries(merged_df1:pd.DataFrame):
 
 
 
+def get_ep_boundary_issues(df:pd.DataFrame,  ukey:str) \
+                      -> list: #tuple[list, pd.DataFrame, pd.DataFrame]:
+   # some service type don't have assessments / look at the duration of episode
+  vi = ValidationError(      
+                msg =  f"No Assessment for episode.",
+                issue_type = IssueType.NO_ASMT_IN_EPISODE)
+  vis = vd.add_validation_issues(df, vi, ukey)
+  return vis
 
-def all_date_validations(df:pd.DataFrame, mask_isuetypes:list[ValidationIssueTuple], ukey:str) \
+
+def get_assessment_boundary_issues(df:pd.DataFrame, mask_isuetypes:list[ValidationIssueTuple], ukey:str) \
                       -> tuple[list, pd.DataFrame, pd.DataFrame]:
     gaps_df = gap_asesmtdate_epsd_boundaries(df)
     matched_df = gaps_df

@@ -7,7 +7,8 @@ from collections import namedtuple
 class DataKeys(Enum):
   client_id =  'SLK'
   episode_id = 'PMSEpisodeID'
-  assessment_id = 'RowKey'
+  per_client_asmt_id = 'RowKey'
+  assessment_id = 'SLK_RowKey'
   assessment_date = 'AssessmentDate'
   episode_start_date = 'CommencementDate'
   episode_end_date = 'EndDate'
@@ -28,6 +29,7 @@ class IssueType(Enum):
   ONLY_IN_EPISODE = auto()
   CLIENT_ONLYIN_EPISODE = auto()
   ASMT_MATCHED_MULTI = auto()
+  NO_ASMT_IN_EPISODE = auto()
 
 
 @dataclass()
