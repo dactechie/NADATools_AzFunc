@@ -1,4 +1,6 @@
+import logging
 import pandas as pd
+import numpy as np
 from  matching.mytypes import DataKeys as dk, \
   IssueType, ValidationError, ValidationWarning,\
        ValidationIssueTuple
@@ -90,14 +92,21 @@ def get_ep_boundary_issues(df:pd.DataFrame,  ukey:str) \
   return vis
 
 
-def get_assessment_boundary_issues(df:pd.DataFrame, mask_isuetypes:list[ValidationIssueTuple], ukey:str) \
-                      -> tuple[list, pd.DataFrame, pd.DataFrame]:
-    gaps_df = gap_asesmtdate_epsd_boundaries(df)
-    matched_df = gaps_df
+def keep_nearest_mismatching_episode(unmatched_asmt:pd.DataFrame) -> pd.DataFrame:
+   unm = unmatched_asmt.copy()
+   unm['min_days'] = np.minimum(np.abs(unm['days_from_start']), np.abs(unm['days_from_end']))
+   ew_df = unm.sort_values(['SLK_RowKey', 'min_days'])
+   ew_df = ew_df.drop_duplicates('SLK_RowKey', keep='first')
+   return ew_df
+
+def get_assessment_boundary_issues(dt_unmtch_asmt:pd.DataFrame, mask_isuetypes:list[ValidationIssueTuple], ukey:str) \
+                      -> tuple[list, pd.DataFrame]:
+    gaps_df = gap_asesmtdate_epsd_boundaries(dt_unmtch_asmt)
+    nearest_remaining_mismatch = keep_nearest_mismatching_episode(gaps_df)    
     validation_issues = []
     full_ew_df =  pd.DataFrame()
     for v in mask_isuetypes:
-        matched_df, ew_df = assessment_date_validator(matched_df, v)
+        nearest_remaining_mismatch, ew_df = assessment_date_validator(nearest_remaining_mismatch, v)
         
         if ut.has_data(ew_df):
             v.validation_issue
@@ -105,6 +114,16 @@ def get_assessment_boundary_issues(df:pd.DataFrame, mask_isuetypes:list[Validati
             # print(vi)
             validation_issues.extend(vis)
             full_ew_df = pd.concat([full_ew_df, ew_df], ignore_index=True)
-            
-    return validation_issues, matched_df, full_ew_df
+    # for v in mask_isuetypes:
+    #   nearest_remaining_mismatch, ew_df = assessment_date_validator(nearest_remaining_mismatch, v)
+    #   if ut.has_data(ew_df):
+    #     full_ew_df = pd.concat([full_ew_df, ew_df], ignore_index=True)
+    
+    if len(nearest_remaining_mismatch) > 0:
+      logging.warn("matched_df should not have anything remaining.")
+
+    # full_ew_df = keep_nearest_mismatching_episode(full_ew_df)
+
+
+    return validation_issues, full_ew_df
 

@@ -17,16 +17,16 @@ def setup_df_for_check(episode_df: pd.DataFrame, \
                           tuple[pd.DataFrame, pd.DataFrame, str]:
     key:str
     # Get unique SLKs from episode and assessment dataframes
+    ep_df = episode_df.copy()
+    as_df = assessment_df.copy()    
     if isinstance(k_tup, tuple):
         keys = list(k_tup)
         if len(keys) > 1:
             ep_df, key = utdf.merge_keys(episode_df, keys)
             as_df, _ = utdf.merge_keys(assessment_df, keys)
         else:
-            keys = k_tup[0]
+            key = k_tup[0]
     else:
-        ep_df = episode_df.copy()
-        as_df = assessment_df.copy()
         key = k_tup
     return ep_df, as_df, key
 
@@ -71,23 +71,24 @@ from matching import increasing_slack as mis
 def perform_date_matches(merged_df: pd.DataFrame, unique_key:str):
     
     # include all the warnings in the good_Df using matching with increasing slack
-    result_matched_df, unmatched_by_date, duplicate_rows_dfs, unmatched_eps_df = \
+    result_matched_df, dt_unmat_asmts, duplicate_rows_dfs, unmatched_eps_df = \
       mis.match_dates_increasing_slack (merged_df , max_slack=7)
 
     mask_isuetype_map = dtchk.date_boundary_validators(limit_days=7)
     # validation_issues, matched_df, invalid_indices =
-    validation_issues, good_df, ew_df = dtchk.get_assessment_boundary_issues(\
-       unmatched_by_date, mask_isuetype_map, unique_key)
+    validation_issues, ew_df = dtchk.get_assessment_boundary_issues(\
+       dt_unmat_asmts, mask_isuetype_map, unique_key)
     
     vis = dtchk.get_ep_boundary_issues(unmatched_eps_df, dk.episode_id.value)
     if vis:
       validation_issues.extend(vis)
     
+    # DO THe same thing for duplicate rows
     vis_dupe = dtchk.get_ep_boundary_issues(duplicate_rows_dfs, dk.episode_id.value)
     if vis_dupe:
       validation_issues.extend(vis_dupe)
 
-    print(f"\n\n \t\t\t Matched good df {good_df.head()}..\n\n \t\t\tbut returning {result_matched_df.head()}")
+    print(f"\n\n \t\t\tbut returning {result_matched_df.head()}")
     print(validation_issues)
     # return validation_issues, good_df, ew_df
     return validation_issues, result_matched_df, ew_df
@@ -129,43 +130,39 @@ def add_client_issues(only_in_ep, only_in_as, mkey):
 
 def filter_good_bad(episode_df: pd.DataFrame, assessment_df: pd.DataFrame):
     validation_issues = []
-    full_ew_df = pd.DataFrame()
+    slk_program_ewdf = pd.DataFrame()
 
-    keys_to_check = [(dk.client_id.value), (dk.client_id.value, "Program")]  # with client_type
+    keys_to_check = [(dk.client_id.value,)]#, (dk.client_id.value, "Program")]  # with client_type
+
+    # 1. check for SLK in both datasets.
     only_in_ep, only_in_as, ep_df_inboth, as_df_inboth, mkey = check_keys(
         episode_df, assessment_df, k_tup=keys_to_check[0]
     )
     if any(only_in_ep) or any(only_in_as):
-      vis, ew_df = add_client_issues(only_in_ep, only_in_as, mkey)
+      vis, slk_program_ewdf = add_client_issues(only_in_ep, only_in_as, mkey)
       validation_issues.extend(vis)
-      # full_ew_df = pd.concat([full_ew_df, ew_df] , ignore_index=True)
 
-    only_in_ep, only_in_as, ep_df_inboth, as_df_inboth, mkey = check_keys(
-        ep_df_inboth, as_df_inboth, k_tup=keys_to_check[1]
-    )
-    if any(only_in_ep) or any(only_in_as):
-      vis, ew_df = add_client_issues(only_in_ep, only_in_as, mkey)
-      validation_issues.extend(vis)
-      # full_ew_df = pd.concat([full_ew_df, ew_df] , ignore_index=True)
-    
-    # slk_program_matched['ATOMKey'] = slk_program_matched['SLK'] + '_' + slk_program_matched['RowKey']
+    # 2. check for SLK +Program in both datasets.
+    # only_in_ep, only_in_as, ep_df_inboth, as_df_inboth, mkey = check_keys(
+    #     ep_df_inboth, as_df_inboth, k_tup=keys_to_check[1]
+    # )
+    # if any(only_in_ep) or any(only_in_as):
+    #   vis, ew_df = add_client_issues(only_in_ep, only_in_as, mkey)
+    #   validation_issues.extend(vis)
+    #   if utdf.has_data(ew_df):
+    #      slk_program_ewdf =  pd.concat([slk_program_ewdf, ew_df] , ignore_index=True)      
 
     #TODO: for the in_both , do the time-boundaries check
     as_df_inboth, asmt_key =  utdf.merge_keys( as_df_inboth, [dk.client_id.value, dk.per_client_asmt_id.value])
     
     merged_df, unique_key = merge_datasets(ep_df_inboth, as_df_inboth, lr_cols=[dk.episode_id.value,
                                                                                 asmt_key]) #IDMK
-    date_validation_issues, good_df, dates_ew_df = perform_date_matches(merged_df, unique_key)
-    if utdf.has_data(dates_ew_df):
+    date_validation_issues, good_df, dates_ewdf = perform_date_matches(merged_df, unique_key)
+    if utdf.has_data(dates_ewdf):
         validation_issues.extend(date_validation_issues)
-        full_ew_df = pd.concat([full_ew_df, dates_ew_df], ignore_index=True)
+        # full_ew_df = pd.concat([full_ew_df, dates_ew_df], ignore_index=True)
 
-    # if utdf.has_data(unmatched_eps_df):
-        
-    #     validation_issues.extend(date_validation_issues)
-    #     full_ew_df = pd.concat([full_ew_df, unmatched_eps_df], ignore_index=True)
-
-    return validation_issues, good_df, full_ew_df #, unmatched_eps_df
+    return validation_issues, good_df, dates_ewdf, slk_program_ewdf
 
     # TODO: collect all errors and warnings
     # return errors, warnings, and good dataset

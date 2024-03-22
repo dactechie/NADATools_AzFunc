@@ -27,7 +27,7 @@ from utils.dtypes import blank_to_today_str, convert_to_datetime
 
 
 # # from test_data import episode_data, assessment_data
-def main():
+def main1():
     # episode_df = pd.DataFrame(episode_data)
     # assessment_df = pd.DataFrame(assessment_data)
     source_folder = 'data/in/'
@@ -46,10 +46,32 @@ def main():
     # atom_df, warnings = prep_dataframe_matching(atom_df)
     # assessment_df = assessment_df.rename(columns={'PartitionKey': 'SLK'})
     atom_df['AssessmentDate'] = convert_to_datetime(atom_df['AssessmentDate'], format='%Y%m%d')
-    validation_issues, good_df, ew_df = filter_good_bad(episode_df, atom_df)
-    ew_df.to_csv('data/out/ew_df.csv')
-   
+    validation_issues, good_df, dates_ewdf, slk_program_ewdf = filter_good_bad(episode_df, atom_df)
 
+    vi = pd.DataFrame(validation_issues)
+    vi.to_csv('data/out/validation_issues.csv')
+
+    dates_ewdf.drop('SurveyData', axis=1, inplace=True)
+    dates_ewdf.to_csv('data/out/dates_ewdf.csv')
+   
+    slk_program_ewdf.drop('SurveyData', axis=1, inplace=True)
+    slk_program_ewdf.to_csv('data/out/slk_program_ewdf.csv')
+    print("Done")
+
+
+def main(): WHY IS THIS SLK not there !!# entity_chosen['PartitionKey'] == 'IR2HR040719671'
+  from datetime import date
+  from utils.environment import MyEnvironmentConfig
+  MyEnvironmentConfig().setup('prod')
+  period_start_dt, period_end_dt = date(2022,7,2), date(2023,3,31)  # atom_20200106-20240317
+        #get_firststart_lastend(ep_df['CommencementDate']#   , ep_df['EndDate'])
+        
+        
+        
+  atom_df, is_processed = extract_atom_data(period_start_dt, period_end_dt
+                                    , purpose=Purpose.MATCHING)# NADA->NSW Programs only   
+
+  print(atom_df) 
 
 if __name__ == "__main__":
     main()

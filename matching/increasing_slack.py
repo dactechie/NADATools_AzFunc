@@ -21,12 +21,13 @@ def match_with_dates(ep_atom_df:pd.DataFrame, matching_ndays_slack: int):
     return filtered_df
 
 
+
 def match_dates_increasing_slack(
       slk_program_matched:pd.DataFrame
       , max_slack:int=7):
   matching_ndays_slack = 0 
   asmt_key = dk.assessment_id.value
-  unmatched_by_date = slk_program_matched
+  unmatched_asmt = slk_program_matched
   result_matched_dfs = []
   result_matched_df = pd.DataFrame()
   duplicate_rows_dfs = pd.DataFrame ()
@@ -36,9 +37,9 @@ def match_dates_increasing_slack(
 
   # program_matched_slk_rks = slk_program_matched.SLK_RowKey
 
-  while len(unmatched_by_date) > 0  and matching_ndays_slack <= max_slack:
+  while len(unmatched_asmt) > 0  and matching_ndays_slack <= max_slack:
       # Get matched assessments with the current slack
-      matched_df = match_with_dates(unmatched_by_date, matching_ndays_slack)
+      matched_df = match_with_dates(unmatched_asmt, matching_ndays_slack)
       
       duplicate_rows_df = get_dupes_by_key(matched_df, asmt_key)
                                           #  'SLK_Program_y')
@@ -58,7 +59,7 @@ def match_dates_increasing_slack(
       # Add the matched DataFrame to the list
       result_matched_dfs.append(matched_df)
 
-      unmatched_by_date = unmatched_by_date[~unmatched_by_date[asmt_key].isin(matched_df[asmt_key])]
+      unmatched_asmt = unmatched_asmt[~unmatched_asmt[asmt_key].isin(matched_df[asmt_key])]
 
       ## there may be other assessments for this SLK that can match if the slack dways are increased
       ## don't exclude the SLK, but the SLK +RowKey
@@ -66,9 +67,9 @@ def match_dates_increasing_slack(
       # Increment the slack days for the next iteration
       matching_ndays_slack += 1
 
-  if len(unmatched_by_date) > 0 :
-     logging.info(f"There are still {len(unmatched_by_date)} unmatched ATOMs")
-     logging.info(f"Unmatched by program: {len(unmatched_by_date.Program.value_counts())}")
+  if len(unmatched_asmt) > 0 :
+     logging.info(f"There are still {len(unmatched_asmt)} unmatched ATOMs")
+     logging.info(f"Unmatched by program: {len(unmatched_asmt.Program.value_counts())}")
     #  logger.info(f"There are still {len(unmatched_atoms)} unmatched ATOMs")
     #  logger.info(f"Unmatched by program: {len(unmatched_atoms.Program.value_counts())}")
 
@@ -81,9 +82,13 @@ def match_dates_increasing_slack(
   unmatched_episodes = slk_program_matched[~mask_matched_eps] \
                         [['PMSEpisodeID', 'SLK','Program']].drop_duplicates()
   
-  result_matched_df = result_matched_df.drop_duplicates(subset=[asmt_key])
+  result_matched_df = result_matched_df.drop_duplicates(subset=[asmt_key])#overlapping episodes -e.g.same end date +start date
+  
+  
+  # Can't do this because need all columns fro matching
+  #unmatched_asmt = unmatched_asmt[['SLK','RowKey','AssessmentDate','Program','Staff','PDCSubstanceOfConcern']].drop_duplicates()
 
   #remove if matched to episodes #TODO TEST ME 
-  unmatched_by_date = unmatched_by_date[unmatched_by_date.PMSEpisodeID.isin(result_matched_df.PMSEpisodeID)]
+  # unmatched_asmt = unmatched_asmt[unmatched_asmt.PMSEpisodeID.isin(result_matched_df.PMSEpisodeID)]
 
-  return result_matched_df, unmatched_by_date, duplicate_rows_dfs, unmatched_episodes
+  return result_matched_df, unmatched_asmt, duplicate_rows_dfs, unmatched_episodes
