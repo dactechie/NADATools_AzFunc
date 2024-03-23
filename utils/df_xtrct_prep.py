@@ -12,7 +12,7 @@ import logging
 from utils.io import get_data, read_parquet, write_parquet, read_csv_to_dataframe
 from data_prep import limit_clients_active_inperiod #, prep_dataframe_episodes
 from data_config import  ATOM_DB_filters 
-from utils.df_ops_base import float_date_parser, has_data
+from utils.df_ops_base import has_data, safe_convert_to_int_strs
 from utils.dtypes import convert_to_datetime, parse_date
 from models.categories import Purpose
 from configs import episodes as EpCfg
@@ -56,6 +56,11 @@ def extract_atom_data(extract_start_date, extract_end_date
   
   if not(isinstance(processed_df, type(None)) or processed_df.empty):
     logging.debug("found & returning pre-processed parquet file.")
+    # TODO chec if the timestamp on this the file is recent
+    # get the last modified date of the file
+    # get the last modified date of ATOMs in the period of interest (assessmentDate)
+    # if the last modified date of the file is after the last modified date of ATOMs, then return the processed_df
+    # else query Azure data to get the latest ATOMs and merge them into the processed_df and save to disk to override
     return processed_df, True
   
   logging.info("No processed data found, loading from raw data.")
@@ -103,9 +108,8 @@ def extract_atom_data(extract_start_date, extract_end_date
 
 def cols_prep(source_df, dest_columns, fill_new_cols) -> pd.DataFrame:
   df_final = source_df.reindex(columns=dest_columns, fill_value=fill_new_cols)
-
   float_cols = df_final.select_dtypes(include=['float']).columns
-  df_final[float_cols] = df_final[float_cols].astype('Int64')
+  df_final = safe_convert_to_int_strs (df_final, float_cols)#.astype('Int64')
   return df_final
 
 # List of column names in the CSV
@@ -157,6 +161,7 @@ def prep_episodes(ep_df1:pd.DataFrame) -> pd.DataFrame:
 
   ep_df = ep_df1[EpCfg.columns_of_interest].copy()
   ep_df['Program'] = ep_df['ESTABLISHMENT IDENTIFIER'].map(EstablishmentID_Program)
+  
   ep_df[EpCfg.date_cols] = ep_df[EpCfg.date_cols] \
                             .apply(lambda x: x.apply(parse_date))
   ep_df.rename(columns=EpCfg.rename_columns

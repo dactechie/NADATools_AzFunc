@@ -88,8 +88,8 @@ def perform_date_matches(merged_df: pd.DataFrame, unique_key:str):
     if vis_dupe:
       validation_issues.extend(vis_dupe)
 
-    print(f"\n\n \t\t\tbut returning {result_matched_df.head()}")
-    print(validation_issues)
+    # print(f"\n\n \t\t\tbut returning {result_matched_df.head()}")
+    # print(validation_issues)
     # return validation_issues, good_df, ew_df
     return validation_issues, result_matched_df, ew_df
     

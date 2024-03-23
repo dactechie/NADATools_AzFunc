@@ -3,6 +3,20 @@ import datetime
 import pandas as pd
 
 
+def safe_convert_to_int_strs(df1:pd.DataFrame, float_columns):
+  df = df1.copy()
+  for col in float_columns:
+    # Round float64 columns to whole numbers
+    df[col] = df[col].round(0)
+
+    # Convert float64 columns to strings
+    df[col] = df[col].astype(str)
+
+    # Replace NaN values with blank strings
+    df[col] = df[col].replace('nan', '')
+
+  return df
+
 def has_data(df:pd.DataFrame|None) -> bool:
    return not(df is None or df.empty)
 
@@ -65,34 +79,18 @@ def to_num_bool_none(x:bool|None) -> str|None:
   
 def transform_multiple(df1:pd.DataFrame, fields:list[str], transformer_fn)-> pd.DataFrame:
   df = df1.copy()  
-  df[fields] = df[fields].apply(lambda field_series: field_series.apply(transformer_fn))
+  # "None of [Index(['Past4WkBeenArrested', 'Past4WkHaveYouViolenceAbusive'], dtype='object')] are in the [columns]"
+  fields_indf = [f for f in fields if f in df.columns]
+  if not fields_indf:
+     return df
+  # if len(fields_indf) !=  len(df.columns):
+  #   fields_noindf = [f for f in fields if f not in df.columns]
+  #   logging.error(f"fields {fields_noindf} not in df columns {df.columns}")
+
+  df[fields_indf] = df[fields_indf].apply(lambda field_series: field_series.apply(transformer_fn))
   return df
 
-"""
-  used to parse dates from Communicare extract of episodes
-"""
-def float_date_parser(date_val):
-     # Check if the input is NaN (Not a Number)
-    if pd.isna(date_val) or not date_val:
-        return datetime.datetime.now().date()  # 
-    
-    # if not isinstance(date_str, int) :
-    #     return datetime.now().date()  # Replace with today's date
-    # Check if the date_str is not a string or is an empty string
-    date_val = str(int(date_val)).zfill(8)
-    
-    # # Check if the string length is less than 8 characters
-    # if len(date_str) < 8:
-    #     # Possibly handle or log this case, as it's an unexpected format
-    #     return None  # or choose an appropriate default value
 
-    try:
-        return pd.to_datetime(date_val, format='%d%m%Y').date()
-    except ValueError:
-        # Handle the case where the date_str is not a valid date
-        # You can log this error if needed
-        return None  # or choose an appropriate default value
-    
 
 def drop_fields(df:pd.DataFrame, fieldnames:list | str | tuple):
   df2 = df.drop(fieldnames, axis=1)

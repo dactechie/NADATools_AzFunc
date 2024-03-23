@@ -46,6 +46,7 @@ def main1():
     # atom_df, warnings = prep_dataframe_matching(atom_df)
     # assessment_df = assessment_df.rename(columns={'PartitionKey': 'SLK'})
     atom_df['AssessmentDate'] = convert_to_datetime(atom_df['AssessmentDate'], format='%Y%m%d')
+    atom_df.dropna(subset=['SurveyData'], inplace=True)
     validation_issues, good_df, dates_ewdf, slk_program_ewdf = filter_good_bad(episode_df, atom_df)
 
     vi = pd.DataFrame(validation_issues)
@@ -59,7 +60,7 @@ def main1():
     print("Done")
 
 
-def main(): WHY IS THIS SLK not there !!# entity_chosen['PartitionKey'] == 'IR2HR040719671'
+def main(): #WHY IS THIS SLK not there !!# entity_chosen['PartitionKey'] == 'IR2HR040719671'
   from datetime import date
   from utils.environment import MyEnvironmentConfig
   MyEnvironmentConfig().setup('prod')
@@ -74,4 +75,4 @@ def main(): WHY IS THIS SLK not there !!# entity_chosen['PartitionKey'] == 'IR2H
   print(atom_df) 
 
 if __name__ == "__main__":
-    main()
+    main1()

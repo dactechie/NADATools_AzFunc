@@ -110,7 +110,7 @@ def define_all_categories(df:pd.DataFrame):
   
 ###############################################
 
-def convert_to_datetime(series:pd.Series, format:str='%Y%m%d') -> pd.Series:
+def convert_to_datetime(series:pd.Series, format:str='%Y%m%d'):# -> pd.Series:
 
   # df [column_names] =
   return pd.to_datetime(series , format=format, errors='coerce').dt.date
@@ -138,12 +138,13 @@ def fix_variants (df1):
   return df
 
 
+
   # convert numeric types
-def fix_numerics(df1):
+def fix_numerics(df1: pd.DataFrame):
 
   df = df1.copy()
   
-  numeric_fields = [k for k, v in data_types.items() if v == 'numeric']
+  numeric_fields = [k for k, v in data_types.items() if v == 'numeric' and k in df.columns]
   logging.debug(f"numeric_fields: {numeric_fields}")
   df[numeric_fields] = df[numeric_fields].apply(pd.to_numeric, errors='coerce') # ignore ?
 

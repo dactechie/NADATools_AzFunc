@@ -5,7 +5,7 @@ import pandas as pd
 from data_config import keep_parent_fields, mulselect_option_to_nadafield
 from models.categories import Purpose
 from utils.base import check_for_string
-from utils.dtypes import convert_dtypes
+from utils.dtypes import convert_dtypes, fix_numerics
 from utils.df_ops_base import concat_drop_parent, \
                             drop_notes_by_regex \
                       ,   drop_fields,\
@@ -28,7 +28,7 @@ def limit_clients_active_inperiod(df, start_date, end_date):
 
   return df_active_clients
 
-
+# TODO : creates blank rows: df_final[df_final.Program.isna()]
 def get_surveydata_expanded(df:pd.DataFrame, prep_type:Purpose):#, prep_type:Literal['ATOM', 'NADA', 'Matching'] ) -> pd.DataFrame: 
   # https://dschoenleber.github.io/pandas-json-performance/
   
@@ -36,7 +36,8 @@ def get_surveydata_expanded(df:pd.DataFrame, prep_type:Purpose):#, prep_type:Lit
 
   df_surveydata = df['SurveyData'].apply(clean_and_parse_json)
   df_surveydata_expanded:pd.DataFrame =  pd.json_normalize(df_surveydata.tolist(), max_level=1)
-  df_surveydata_expanded = df_surveydata_expanded[['ClientType', 'PDC']]
+  if prep_type == Purpose.MATCHING:
+    df_surveydata_expanded = df_surveydata_expanded[['ClientType', 'PDC']] 
   
   if keep_parent_fields:
     existing_columns_to_remove = [col for col in keep_parent_fields 
@@ -75,6 +76,9 @@ def nadafield_from_multiselect(df1:pd.DataFrame) -> pd.DataFrame:
   # no_answer_value = -1  # do this together later for all fields.
   for ATOMMultiSelectQuestion, nadafield_searchstr in mulselect_option_to_nadafield.items():
     for nadafield, search_str in nadafield_searchstr.items():
+      if ATOMMultiSelectQuestion not in df.columns:
+        logging.warn(f"No column {ATOMMultiSelectQuestion} nadafield_from_multiselect")
+        continue
       df[nadafield] = df[ATOMMultiSelectQuestion].apply(lambda x: check_for_string(x, search_str))
 
   return df
@@ -117,12 +121,12 @@ def prep_dataframe_nada(df:pd.DataFrame):
   df52 = convert_yes_nofields(df51, yes_nofields)
   bool_fields = ['ATOPHomeless',	'ATOPRiskEviction',	'PrimaryCaregiver_0-5',
                  	'PrimaryCaregiver_5-15',	'Past4Wk_ViolentToYou',]
-  df53 = convert_true_falsefields(df52, bool_fields)
+  df6 = convert_true_falsefields(df52, bool_fields)
    
-  df6 = df53[[c for c in df53.columns if c in nada_cols]]
+  # df6 = df53[[c for c in df53.columns if c in nada_cols]]
 
-  df7 = convert_dtypes(df6)  
-  df7.rename(columns={'PartitionKey': 'SLK'}, inplace=True)
+  df7 = fix_numerics(df6)  
+  df7.rename(columns={'ESTABLISHMENT IDENTIFIER': 'AgencyCode'}, inplace=True)
   
   df9 = df7.sort_values(by="AssessmentDate")
   logging.debug(f"Done Prepping df")
