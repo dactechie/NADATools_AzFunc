@@ -2,20 +2,19 @@
 import datetime
 import pandas as pd
 
-
 def safe_convert_to_int_strs(df1:pd.DataFrame, float_columns):
+  df2 = df1.copy()
   df = df1.copy()
+
+  df2[float_columns] = df[float_columns].astype(str).replace('nan', '')
+  # df2[float_columns] = df2[float_columns].replace('nan', '')
+
   for col in float_columns:
-    # Round float64 columns to whole numbers
-    df[col] = df[col].round(0)
+    mask = ~df[col].isna()
+    df2.loc[mask, col] = df.loc[mask, col].astype(int).astype(str)
+    
+  return df2
 
-    # Convert float64 columns to strings
-    df[col] = df[col].astype(str)
-
-    # Replace NaN values with blank strings
-    df[col] = df[col].replace('nan', '')
-
-  return df
 
 def has_data(df:pd.DataFrame|None) -> bool:
    return not(df is None or df.empty)

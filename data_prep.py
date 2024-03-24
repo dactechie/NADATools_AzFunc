@@ -68,9 +68,6 @@ def get_surveydata_expanded(df:pd.DataFrame, prep_type:Purpose):#, prep_type:Lit
 #       df[col] = pd.to_datetime(df[col], format='%d-%m-%Y', errors='coerce')
 #   return df  
 
-
-
-
 def nadafield_from_multiselect(df1:pd.DataFrame) -> pd.DataFrame:
   df= df1.copy()
   # no_answer_value = -1  # do this together later for all fields.
@@ -99,9 +96,6 @@ def prep_dataframe_matching(df:pd.DataFrame):
   df5, warnings_aod = expand_drug_info(df2)
   return df5, warnings_aod
 
-                 
-
-
 
 def prep_dataframe_nada(df:pd.DataFrame):
 
@@ -123,12 +117,11 @@ def prep_dataframe_nada(df:pd.DataFrame):
                  	'PrimaryCaregiver_5-15',	'Past4Wk_ViolentToYou',]
   df6 = convert_true_falsefields(df52, bool_fields)
    
-  # df6 = df53[[c for c in df53.columns if c in nada_cols]]
-
   df7 = fix_numerics(df6)  
   df7.rename(columns={'ESTABLISHMENT IDENTIFIER': 'AgencyCode'}, inplace=True)
   
-  df9 = df7.sort_values(by="AssessmentDate")
+  df9 = df7.sort_values(by=["SLK", "AssessmentDate"])
+  
   logging.debug(f"Done Prepping df")
   return df9 , warnings_aod
 

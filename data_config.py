@@ -422,19 +422,17 @@ nada_cols = [
 notanswered_defaults = [
   'ATOPInjectedUsedEquipment',           ##
   'ATOPDailyTobaccoUse',                 ##
-  'YourCurrentHousing_Homeless',         ##
-  'YourCurrentHousing_Atriskofeviction', ##
+  # 'YourCurrentHousing_Homeless',         ##
+  # 'YourCurrentHousing_Atriskofeviction', ##
 
-  'PrimaryCaregiver_0-5' ,
-  'PrimaryCaregiver_5-15',
-  'Past4WkBeenArrested',
-  
-  'Past4WkAodRisks_ViolentToYou',        ##
 
-  'Past4WkHaveYouViolenceAbusive', #  Has the client been violent 
-  'Past4WkPhysicalHealth'     , #not answered/no answer
-  'Past4WkMentalHealth'       ,
-  'Past4WkQualityOfLifeScore' ,
+
+"ATOPHomeless",	"ATOPRiskEviction",	"PrimaryCaregiver_0-5",	"PrimaryCaregiver_5-15",			
+
+"Past4WkBeenArrested",	"Past4Wk_ViolentToYou", "Past4WkHaveYouViolenceAbusive",
+
+"Past4WkMentalHealth",	"Past4WkPhysicalHealth",	"Past4WkQualityOfLifeScore",	
+
 ]
 
 nada_final_fields = [

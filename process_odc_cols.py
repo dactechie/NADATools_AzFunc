@@ -133,7 +133,8 @@ def process_drug_list_for_assessment(pdc_odc_colname:str, assessment):
     row_data[ f"{nada_drug}_DaysInLast28"] = item.get(field_use_ndays,'')     
     per_occassion , typical_unit_str, typical_use_str, warning =  get_typical_qty(item, field_names, assessment)
 
-    row_data [ f"{nada_drug}_PerOccassionUse"] = per_occassion
+    if per_occassion:
+      row_data [ f"{nada_drug}_PerOccassionUse"] = str(int(per_occassion)) # HACK - prefer to do this at the end before writing to survey.txt file
     row_data [ f"{nada_drug}_Units"] = typical_unit_str
     row_data [ f"{nada_drug}_TypicalQtyStr"] = typical_use_str
     if warning:

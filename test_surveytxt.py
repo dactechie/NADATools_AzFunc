@@ -20,44 +20,51 @@ def final_nada_cols(matched_df):
 
 
 def prep_surveytxt(df):
-  
-  df.loc[:,"Stage"] = get_stage_per_episode(df)
+  from utils.dtypes import date_to_str
+  df["Stage"] = get_stage_per_episode(df)
 
   df_final = final_nada_cols(df)
   df_final = cols_prep(df, nada_final_fields, fill_new_cols="")
   df_final['PDCCode'] = df_final['PDCCode'].astype(str).apply(lambda x: x.zfill(4))
+  df_final['AssessmentDate'] = date_to_str(df_final['AssessmentDate'],  str_fmt='ddmmyyyy')
 
+  
 
   # float_cols = df_final.select_dtypes(include=['float']).columns
   # df_final[float_cols] = df_final[float_cols].astype('Int64')
   return df_final
 
 def main():
-  # source_folder = 'data/in/'
-  # fname_eps =  f'{source_folder}NSW_MDS_1jan2020-31dec2023.csv'#TEST_NSWMDS.csv'
+  source_folder = 'data/in/'
+  fname_eps =  f'{source_folder}NSW_MDS_1jan2020-31dec2023.csv'#TEST_NSWMDS.csv'
 
-  # fname_atoms= f'{source_folder}atom_20200106-20240317.parquet' #TEST_ATOM.csv'
-  # episode_df = pd.read_csv(fname_eps,   dtype=str)
+  fname_atoms= f'{source_folder}atom_20200106-20240317.parquet' #TEST_ATOM.csv'
+  episode_df = pd.read_csv(fname_eps,   dtype=str)
   
-  # episode_df.dropna(subset=['START DATE'], inplace=True)
-  # episode_df['END DATE'] = episode_df['END DATE'].apply(lambda x: blank_to_today_str(x))
-  # episode_df = prep_episodes(episode_df)
+  episode_df.dropna(subset=['START DATE'], inplace=True)
+  episode_df['END DATE'] = episode_df['END DATE'].apply(lambda x: blank_to_today_str(x))
+  episode_df = prep_episodes(episode_df)
 
-  # atom_df = pd.read_parquet(fname_atoms)
+  atom_df = pd.read_parquet(fname_atoms)
   
-  # atom_df = atom_df.rename(columns={'PartitionKey': 'SLK'})
-  # # atom_df, warnings = prep_dataframe_matching(atom_df)
-  # # assessment_df = assessment_df.rename(columns={'PartitionKey': 'SLK'})
-  # atom_df['AssessmentDate'] = convert_to_datetime(atom_df['AssessmentDate'], format='%Y%m%d')
-  # # atom_df.dropna(subset=['SurveyData'], inplace=True)
-  # validation_issues, good_df, dates_ewdf, slk_program_ewdf = filter_good_bad(episode_df, atom_df)
+  atom_df = atom_df.rename(columns={'PartitionKey': 'SLK'})
+  # atom_df, warnings = prep_dataframe_matching(atom_df)
+
+  # assessment_df = assessment_df.rename(columns={'PartitionKey': 'SLK'})
+  atom_df['AssessmentDate'] = convert_to_datetime(atom_df['AssessmentDate'], format='%Y%m%d')
+  # atom_df.dropna(subset=['SurveyData'], inplace=True)
+  validation_issues, good_df, dates_ewdf, slk_program_ewdf = filter_good_bad(episode_df, atom_df)
  
-  # res, warnings_aod = prep_dataframe_nada(good_df)
-  # res = res[~res.Program.isna()]
+  res, warnings_aod = prep_dataframe_nada(good_df)
+  res = res[~res.Program.isna()]
+  # res.to_parquet('/data/out/nada.parquet')
+
   # res.to_csv('data/out/nada.csv',index_label="index")
-  res = pd.read_csv('data/out/nada.csv')
+  # res = pd.read_parquet('/data/out/nada.parquet')
+  # res = pd.read_csv('data/out/nada.csv')
   # TODO : Converyt dates to ddmmyyyy
   st = prep_surveytxt(res)
+  # st.to_parquet('/data/out/surveytxt.parquet')
   st.to_csv('data/out/surveytxt.csv', index=False)
   
   return st

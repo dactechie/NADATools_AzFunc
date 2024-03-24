@@ -55,28 +55,43 @@ def make_serializable(df1:pd.DataFrame, date_cols:list[str]) -> pd.DataFrame:
 #   cols = ['Start_Date','End_Date' ]
 #   s = make_serializable (test_df, cols)
 #   print(test_df)
+simple_date_formats = {
+   'ddmmyyyy' : "%d%m%Y",
+   'yyyymmdd' : "%Y%m%d",
+  #  'yyyymm' : "%Y%m",
+  #  'yyyy' : "%Y",
+  #  'mm' : "%m",
+  #  'dd' : "%d",
+  #  'hhmmss' : "%H%M%S",
+  #  'hhmm' : "%H%M",
+  #  'hh' : "%H",
+  #  'mm' : "%M",
+  #  'ss' : "%S",
+}
 
-def date_to_str(date_obj: date, str_fmt='yyyymmdd') -> str:
-  if str_fmt != 'yyyymmdd':
-    raise NotImplementedError ("format not recognized")
-  return date_obj.strftime("%Y%m%d")
+def date_to_str(date_obj: date|pd.Series, str_fmt='yyyymmdd') -> str|pd.Series:
+    """
+    Convert a single date object or a Series of dates to a formatted string or a Series of formatted strings.
 
+    Args:
+        date_obj (datetime.date, datetime.datetime, pd.Series): A single date object or a Series of dates.
+        date_format (str, optional): The desired date format for the output string(s). Default is '%d%m%Y'.
 
+    Returns:
+        str or pd.Series: A formatted string or a Series of formatted strings representing the input date(s).
+    """
+    if isinstance(date_obj, pd.Series):
+        dt_df = pd.to_datetime(date_obj, format='%d%m%Y', errors='coerce')
+        return dt_df.dt.strftime(simple_date_formats[str_fmt])
+    else:
+        return date_obj.strftime(simple_date_formats[str_fmt])
+      
+  
 # Define a function to convert blanks to today's date
 def blank_to_today_str(x):
     if pd.isnull(x)  or x.strip() == 'NaN' or x.strip() == '':
         return datetime.now().strftime('%d%m%Y')
     return x
-
-def parse_date(date_str, format='%d%m%Y'):
-    if not date_str:
-      return None
-    return datetime.strptime(date_str.zfill(8), format).date()
-# def str_to_date(date_str: str, str_fmt='ddmmyyyy') -> date:
-#   if str_fmt != 'ddmmyyyy':
-#     raise NotImplementedError ("format not recognized")
-#   return datetime.strptime(date_str, '%d%m%Y').date()
-    # return int(datetime.datetime.combine(date_obj, datetime.time.min).strftime("%Y%m%d"))
 
 
 def define_category_with_uniqs(df:pd.DataFrame, question:str) -> CategoricalDtype:  
@@ -111,9 +126,16 @@ def define_all_categories(df:pd.DataFrame):
 ###############################################
 
 def convert_to_datetime(series:pd.Series, format:str='%Y%m%d'):# -> pd.Series:
-
+  """
+  Blanks are filled with today/now datetime
+  """
   # df [column_names] =
-  return pd.to_datetime(series , format=format, errors='coerce').dt.date
+  dt_s =  pd.to_datetime(series , format=format, errors='coerce')#.dt.date
+  now = pd.Timestamp.now()
+
+  # Replace NaT values with the current date and time
+  datetime_series = dt_s.fillna(now)
+  return datetime_series
 
 """
       # fix_variants       

@@ -13,12 +13,11 @@ from utils.io import get_data, read_parquet, write_parquet, read_csv_to_datafram
 from data_prep import limit_clients_active_inperiod #, prep_dataframe_episodes
 from data_config import  ATOM_DB_filters 
 from utils.df_ops_base import has_data, safe_convert_to_int_strs
-from utils.dtypes import convert_to_datetime, parse_date
+from utils.dtypes import convert_to_datetime
 from models.categories import Purpose
 from configs import episodes as EpCfg
 
-from data_config import EstablishmentID_Program
-
+from data_config import EstablishmentID_Program,   notanswered_defaults
 
 def filter_by_purpose(df:pd.DataFrame, filters:dict|None) -> pd.DataFrame:
   if not filters:
@@ -45,8 +44,8 @@ def extract_atom_data(extract_start_date, extract_end_date
                             , purpose:Purpose) -> tuple[pd.DataFrame, bool] :
   # warnings = None
   is_processed = False
-  xtr_start_str = date_to_str(extract_start_date, str_fmt='yyyymmdd')
-  xtr_end_str = date_to_str(extract_end_date, str_fmt='yyyymmdd')
+  xtr_start_str = str(date_to_str(extract_start_date, str_fmt='yyyymmdd'))
+  xtr_end_str = str(date_to_str(extract_end_date, str_fmt='yyyymmdd'))
   period_range = f"{xtr_start_str}-{xtr_end_str}"
   processed_filepath = f"./data/processed/atom_{purpose}_{period_range}.parquet"
   
@@ -105,11 +104,24 @@ def extract_atom_data(extract_start_date, extract_end_date
   # finally:
 
 
+def set_not_answered(df1:pd.DataFrame, notanswered_cols:list) -> pd.DataFrame:
+  df = df1.copy()
+  for col in notanswered_cols:
+    df[col].replace('', -1, inplace=True)
+
+  return df
+
 
 def cols_prep(source_df, dest_columns, fill_new_cols) -> pd.DataFrame:
   df_final = source_df.reindex(columns=dest_columns, fill_value=fill_new_cols)
-  float_cols = df_final.select_dtypes(include=['float']).columns
+  
+  # 'StandardDrinksPerDay' (_PerOccassionUse) -> Range/average calculation resutls in float
+  float_cols = list(df_final.select_dtypes(include=['float']).columns )
+                    #+ \
+                    #[c for c in df_final.columns if   '_PerOccassionUse' in c]
   df_final = safe_convert_to_int_strs (df_final, float_cols)#.astype('Int64')
+
+  df_final = set_not_answered(df_final, notanswered_cols=notanswered_defaults)
   return df_final
 
 # List of column names in the CSV
@@ -162,8 +174,16 @@ def prep_episodes(ep_df1:pd.DataFrame) -> pd.DataFrame:
   ep_df = ep_df1[EpCfg.columns_of_interest].copy()
   ep_df['Program'] = ep_df['ESTABLISHMENT IDENTIFIER'].map(EstablishmentID_Program)
   
-  ep_df[EpCfg.date_cols] = ep_df[EpCfg.date_cols] \
-                            .apply(lambda x: x.apply(parse_date))
+#  convert_to_datetime(atom_df['AssessmentDate'], format='%Y%m%d')
+
+
+  ep_df[EpCfg.date_cols[0]] = convert_to_datetime(ep_df[EpCfg.date_cols[0]],  format='%d%m%Y')
+  ep_df[EpCfg.date_cols[1]] = convert_to_datetime(ep_df[EpCfg.date_cols[1]],  format='%d%m%Y')
+                   
+
+
+  # ep_df[EpCfg.date_cols] = ep_df[EpCfg.date_cols] \
+  #                           .apply(lambda x: x.apply(parse_date))
   ep_df.rename(columns=EpCfg.rename_columns
             , inplace=True)
   return ep_df
