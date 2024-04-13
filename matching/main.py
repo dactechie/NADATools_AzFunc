@@ -1,3 +1,4 @@
+import logging
 import pandas as pd
 from .mytypes import DataKeys as dk,\
       IssueType, ValidationError
@@ -6,6 +7,7 @@ import utils.df_ops_base as utdf
 from utils import base as utbase
 import matching.date_checks as dtchk
 import matching.validations as vd
+from matching import increasing_slack as mis
 
 # from  matching.mytypes import ValidationIssue
 
@@ -40,9 +42,9 @@ def check_keys(episode_df: pd.DataFrame, assessment_df: pd.DataFrame, k_tup: tup
        set(epdf_mkey[key]),   set(asdf_mkey[key])
     )
     if only_in_as:
-        print("oly in assessment", assessment_df[asdf_mkey[key].isin(only_in_as)])
+      logging.warn("oly in assessment", assessment_df[asdf_mkey[key].isin(only_in_as)])
     if only_in_ep:
-        print("oly in episode", episode_df[epdf_mkey[key].isin(only_in_ep)])
+      logging.warn("oly in episode", episode_df[epdf_mkey[key].isin(only_in_ep)])
 
     return   epdf_mkey[epdf_mkey[key].isin(only_in_ep)] \
                  , asdf_mkey[asdf_mkey[key].isin(only_in_as)] \
@@ -64,10 +66,6 @@ def merge_datasets(episode_df:pd.DataFrame, assessment_df:pd.DataFrame, lr_cols:
     return merged_df, unique_key
 
 
-from matching import increasing_slack as mis
-# def match_dates_increasing_slack(
-#       slk_program_matched:pd.DataFrame
-#       , max_slack:int=7):
 def perform_date_matches(merged_df: pd.DataFrame, unique_key:str):
     
     # include all the warnings in the good_Df using matching with increasing slack
@@ -92,8 +90,6 @@ def perform_date_matches(merged_df: pd.DataFrame, unique_key:str):
     # print(validation_issues)
     # return validation_issues, good_df, ew_df
     return validation_issues, result_matched_df, ew_df
-    
-
     
 
 """
@@ -161,7 +157,7 @@ def filter_good_bad(episode_df: pd.DataFrame, assessment_df: pd.DataFrame):
     if utdf.has_data(dates_ewdf):
         validation_issues.extend(date_validation_issues)
         # full_ew_df = pd.concat([full_ew_df, dates_ew_df], ignore_index=True)
-
+    # dates_ewdf[dates_ewdf.PMSEpisodeID_SLK_RowKey == date_validation_issues[0].key]
     return validation_issues, good_df, dates_ewdf, slk_program_ewdf
 
     # TODO: collect all errors and warnings

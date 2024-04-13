@@ -130,7 +130,7 @@ def convert_to_datetime(series:pd.Series, format:str='%Y%m%d'):# -> pd.Series:
   Blanks are filled with today/now datetime
   """
   # df [column_names] =
-  dt_s =  pd.to_datetime(series , format=format, errors='coerce')#.dt.date
+  dt_s =  pd.to_datetime(series.astype(str).str.zfill(8) , format=format, errors='coerce')#.dt.date
   now = pd.Timestamp.now()
 
   # Replace NaT values with the current date and time
