@@ -1,6 +1,7 @@
 import logging
 import pandas as pd
-from data_config import nada_drug_days_categories, PDC_ODC_ATOMfield_names as PDC_ODC_fields
+from data_config import PDC_ODC_ATOMfield_names as PDC_ODC_fields
+from importers.config import ATOM
 from utils.fromstr import range_average
 # import mylogging
 # logging = mylogging.get(__name__)
@@ -25,9 +26,9 @@ from utils.fromstr import range_average
 """
   2nd return variable it whether a category was found or not
 """
-def get_nada_drg_category(drug_name:str) -> tuple[str, int]:
+def get_drug_category(drug_name:str, aod_groupings:dict) -> tuple[str, int]:
   # found_category  = 0  
-  for category_name, substances in nada_drug_days_categories.items():
+  for category_name, substances in aod_groupings.items():
      if drug_name in substances:
         return category_name, 1
   # print(f"no category for drug {drug_name}. ")
@@ -114,14 +115,15 @@ def process_drug_list_for_assessment(pdc_odc_colname:str, assessment):
       # logging.error(f"Data Quality error {field_drug_name} not in drug dict. SLK:{assessment['PartitionKey']}, RowKey:{assessment['RowKey']}.")
       continue
     # unique_subtances.append(substance) 
-    nada_drug, found_category = get_nada_drg_category (substance)
+    mapped_drug, found_category = get_drug_category (substance
+                                                     , aod_groupings=ATOM.MAP_AOD_GROUPINGS)
     if not found_category:
        if not row_data or not( 'Another Drug1' in row_data) or pd.isna(row_data['Another Drug1']):
-          row_data['Another Drug1'] = nada_drug
-          nada_drug ='Another Drug1'
+          row_data['Another Drug1'] = mapped_drug
+          mapped_drug ='Another Drug1'
        else:
-          row_data['Another Drug2'] = nada_drug
-          nada_drug ='Another Drug2'
+          row_data['Another Drug2'] = mapped_drug
+          mapped_drug ='Another Drug2'
                  
     # if not field_use_ndays in item:
     #   logging.error(f"Data Quality error {field_use_ndays} not in drug({substance})dict. \
@@ -130,13 +132,13 @@ def process_drug_list_for_assessment(pdc_odc_colname:str, assessment):
     #   logging.error(f"Data Quality error {field_perocc} not in drug({substance})dict. \
     #                SLK:{assessment['SLK']}, RowKey:{assessment['RowKey']}.")             
        
-    row_data[ f"{nada_drug}_DaysInLast28"] = item.get(field_use_ndays,'')     
+    row_data[ f"{mapped_drug}_DaysInLast28"] = item.get(field_use_ndays,'')     
     per_occassion , typical_unit_str, typical_use_str, warning =  get_typical_qty(item, field_names, assessment)
 
     if per_occassion:
-      row_data [ f"{nada_drug}_PerOccassionUse"] = str(int(per_occassion)) # HACK - prefer to do this at the end before writing to survey.txt file
-    row_data [ f"{nada_drug}_Units"] = typical_unit_str
-    row_data [ f"{nada_drug}_TypicalQtyStr"] = typical_use_str
+      row_data [ f"{mapped_drug}_PerOccassionUse"] = str(int(per_occassion)) # HACK - prefer to do this at the end before writing to survey.txt file
+    row_data [ f"{mapped_drug}_Units"] = typical_unit_str
+    row_data [ f"{mapped_drug}_TypicalQtyStr"] = typical_use_str
     if warning:
       warnings.append(warning)
 

@@ -1,9 +1,11 @@
 import pandas as pd
-from data_prep import prep_dataframe_matching
+# from data_prep import prep_dataframe_matching
 from matching.main import filter_good_bad
 from models.categories import Purpose
-from utils.df_xtrct_prep import prep_episodes, extract_atom_data
 from utils.dtypes import blank_to_today_str, convert_to_datetime
+from importers import episodes as imptr_episodes
+from importers import assessments as imptr_assessments
+# from importers.episodes import prepare as prep_episodes
 # from test_data import episode_data, assessment_data
 # def main():
 #     purpose:Purpose = Purpose.MATCHING
@@ -40,10 +42,10 @@ def main1():
     
     episode_df.dropna(subset=['START DATE'], inplace=True)
     episode_df['END DATE'] = episode_df['END DATE'].apply(lambda x: blank_to_today_str(x))
-    episode_df = prep_episodes(episode_df)
+    episode_df = imptr_episodes.prepare(episode_df)
 
     period_start_dt, period_end_dt = date(2015,1,1), date(2024,4,11)
-    atom_df, isprocessed = extract_atom_data(period_start_dt, period_end_dt,  Purpose.MATCHING) # pd.read_parquet(fname_atoms)
+    atom_df, isprocessed = imptr_assessments.extract_atom_data(period_start_dt, period_end_dt,  Purpose.MATCHING) # pd.read_parquet(fname_atoms)
     
     atom_df = atom_df.rename(columns={'PartitionKey': 'SLK'})
     # atom_df, warnings = prep_dataframe_matching(atom_df)
@@ -70,19 +72,19 @@ def main1():
     print("Done")
 
 
-def main(): #WHY IS THIS SLK not there !!# entity_chosen['PartitionKey'] == 'IR2HR040719671'
-  from datetime import date
-  from utils.environment import MyEnvironmentConfig
-  MyEnvironmentConfig().setup('prod')
-  period_start_dt, period_end_dt = date(2022,7,2), date(2023,3,31)  # atom_20200106-20240317
-        #get_firststart_lastend(ep_df['CommencementDate']#   , ep_df['EndDate'])
+# def main(): #WHY IS THIS SLK not there !!# entity_chosen['PartitionKey'] == 'IR2HR040719671'
+#   from datetime import date
+#   from utils.environment import MyEnvironmentConfig
+#   MyEnvironmentConfig().setup('prod')
+#   period_start_dt, period_end_dt = date(2022,7,2), date(2023,3,31)  # atom_20200106-20240317
+#         #get_firststart_lastend(ep_df['CommencementDate']#   , ep_df['EndDate'])
         
         
         
-  atom_df, is_processed = extract_atom_data(period_start_dt, period_end_dt
-                                    , purpose=Purpose.MATCHING)# NADA->NSW Programs only   
+#   atom_df, is_processed = extract_atom_data(period_start_dt, period_end_dt
+#                                     , purpose=Purpose.MATCHING)# NADA->NSW Programs only   
 
-  print(atom_df) 
+#   print(atom_df) 
 
 if __name__ == "__main__":
     main1()

@@ -1,5 +1,5 @@
 from datetime import datetime
-from utils.df_xtrct_prep import extract_prep_atom_data
+from utils.df_xtrct_prep import extract_atom_data
 from utils.environment import MyEnvironmentConfig
 
 MyEnvironmentConfig().setup('prod')
@@ -14,7 +14,7 @@ def test_extract_prep_atom_data():
     # mock_atom_df = pd.DataFrame({
         
     # })
-    atom_df = extract_prep_atom_data(period_start_dt, period_end_dt
+    atom_df = extract_atom_data(period_start_dt, period_end_dt
                                     , purpose='NADA')
     print (atom_df.head())
     return atom_df

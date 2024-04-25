@@ -99,14 +99,15 @@ def read_parquet(file_path:str) -> pd.DataFrame:
     return df
   return pd.DataFrame()
 
-def write_parquet(df:pd.DataFrame, file_path:str, force=False) -> pd.DataFrame|None:
+def write_parquet(df:pd.DataFrame, file_path:str, force=False) -> int:
   pathdirs_without_fname = file_path.split("/")[:-1]
   parent_dir = "/".join(pathdirs_without_fname)
   if force or os.path.exists(parent_dir):
     df.to_parquet(f"{file_path}")
     logging.info(f"Wrote to parquet file {file_path}")
-    return
+    return 0
   logging.info(f"Did not write to  file {file_path}")
+  return -1
  
 
 #TODO : store /load parquet file from file/blob storage

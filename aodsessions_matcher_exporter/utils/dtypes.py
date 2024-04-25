@@ -135,7 +135,9 @@ def convert_to_datetime(series:pd.Series, format:str='%Y%m%d'):# -> pd.Series:
 
   # Replace NaT values with the current date and time
   datetime_series = dt_s.fillna(now)
-  return datetime_series
+  date_series = datetime_series.dt.date
+
+  return date_series
 
 """
       # fix_variants       

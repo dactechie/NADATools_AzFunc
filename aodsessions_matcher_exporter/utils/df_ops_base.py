@@ -92,7 +92,8 @@ def transform_multiple(df1:pd.DataFrame, fields:list[str], transformer_fn)-> pd.
 
 
 def drop_fields(df:pd.DataFrame, fieldnames:list | str | tuple):
-  df2 = df.drop(fieldnames, axis=1)
+  to_remove = [col for col in fieldnames if col in df.columns ]
+  df2 = df.drop(to_remove, axis=1)
   return df2
 
 

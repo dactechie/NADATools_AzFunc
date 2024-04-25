@@ -28,16 +28,29 @@ def range_average(range_str:str, separator:str='-'):
     return np.nan
   
 
-# Function to safely parse JSON and handle errors
-def clean_and_parse_json(s:str):
+# # Function to safely parse JSON and handle errors
+# def clean_and_parse_json(s:str):
     
-    # import mylogging
-    # logging = mylogging.get(__name__)
+#     # import mylogging
+#     # logging = mylogging.get(__name__)
+#     try:
+#         cleaned_string = s.replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t')
+#         return json.loads(cleaned_string)
+#     except json.JSONDecodeError as e:
+#         logging.error(f"Error parsing JSON: {e}")
+#         logging.error(f"Problematic data: {s}")
+#         # Return None or some default value if JSON is invalid
+#         return None
+def clean_and_parse_json(s: str):
     try:
-        cleaned_string = s.replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t')
+        replacements = {
+            '\n': '\\n',
+            '\r': '\\r',
+            '\t': '\\t'
+        }
+        cleaned_string = s.translate(str.maketrans(replacements))
         return json.loads(cleaned_string)
     except json.JSONDecodeError as e:
         logging.error(f"Error parsing JSON: {e}")
         logging.error(f"Problematic data: {s}")
-        # Return None or some default value if JSON is invalid
-        return None
+        return {}  # Return an empty dictionary or any other default value

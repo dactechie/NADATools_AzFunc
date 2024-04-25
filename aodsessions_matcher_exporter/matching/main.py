@@ -124,11 +124,11 @@ def add_client_issues(only_in_ep, only_in_as, mkey):
   return validation_issues, full_ew_df
 
 
-def filter_good_bad(episode_df: pd.DataFrame, assessment_df: pd.DataFrame):
+def filter_good_bad(episode_df: pd.DataFrame, assessment_df: pd.DataFrame)-> tuple[list, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     validation_issues = []
     slk_program_ewdf = pd.DataFrame()
 
-    keys_to_check = [(dk.client_id.value,)]#, (dk.client_id.value, "Program")]  # with client_type
+    keys_to_check = [(dk.client_id.value,), (dk.client_id.value, "Program")]  # with client_type
 
     # 1. check for SLK in both datasets.
     only_in_ep, only_in_as, ep_df_inboth, as_df_inboth, mkey = check_keys(
@@ -139,14 +139,14 @@ def filter_good_bad(episode_df: pd.DataFrame, assessment_df: pd.DataFrame):
       validation_issues.extend(vis)
 
     # 2. check for SLK +Program in both datasets.
-    # only_in_ep, only_in_as, ep_df_inboth, as_df_inboth, mkey = check_keys(
-    #     ep_df_inboth, as_df_inboth, k_tup=keys_to_check[1]
-    # )
-    # if any(only_in_ep) or any(only_in_as):
-    #   vis, ew_df = add_client_issues(only_in_ep, only_in_as, mkey)
-    #   validation_issues.extend(vis)
-    #   if utdf.has_data(ew_df):
-    #      slk_program_ewdf =  pd.concat([slk_program_ewdf, ew_df] , ignore_index=True)      
+    only_in_ep, only_in_as, ep_df_inboth, as_df_inboth, mkey = check_keys(
+        ep_df_inboth, as_df_inboth, k_tup=keys_to_check[1]
+    )
+    if any(only_in_ep) or any(only_in_as):
+      vis, ew_df = add_client_issues(only_in_ep, only_in_as, mkey)
+      validation_issues.extend(vis)
+      if utdf.has_data(ew_df):
+         slk_program_ewdf =  pd.concat([slk_program_ewdf, ew_df] , ignore_index=True)      
 
     #TODO: for the in_both , do the time-boundaries check
     as_df_inboth, asmt_key =  utdf.merge_keys( as_df_inboth, [dk.client_id.value, dk.per_client_asmt_id.value])
