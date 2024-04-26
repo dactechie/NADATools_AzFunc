@@ -1,18 +1,12 @@
-# from typing import Optional
-import pandas as pd
-# from datetime import datetime
-
-
-# import mylogger
 import logging
-
+import pandas as pd
 from utils.io import get_data, read_parquet, write_parquet, read_csv_to_dataframe
 # from data_prep import limit_clients_active_inperiod #, prep_dataframe_episodes
 from data_config import  ATOM_DB_filters 
-from utils.df_ops_base import has_data, safe_convert_to_int_strs
+from utils.df_ops_base import has_data
 from utils.dtypes import convert_to_datetime
 from utils.base import get_period_range
-from models.categories import Purpose, DataType
+from mytypes import Purpose
 
 
 def filter_by_purpose(df:pd.DataFrame, filters:dict|None) -> pd.DataFrame:
@@ -31,8 +25,8 @@ def prepare(asmt_df:pd.DataFrame, start_date:str, end_date:str) -> pd.DataFrame:
 
 
 def import_data(asmt_st:str, asmt_end:str) -> pd.DataFrame:
-  processed_folder = 'data/processed/'
-  source_folder = 'data/in/'
+  processed_folder = 'data/processed'
+  source_folder = 'data/in'
 
   period_range = f"{asmt_st}-{asmt_end}"
   fname =  f'ATOM_{period_range}-AllPrograms'

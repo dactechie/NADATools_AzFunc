@@ -4,11 +4,28 @@ from typing import Optional #, KW_ONLY
 from collections import namedtuple
 
 
+class DataType(Enum):
+  ASSESSMENTS = auto()
+  EPISODES = auto()
+  PROCESSED_ASSESSMENTS = auto()
+  PROCESSED_EPISODES = auto()
+  # OTHER = auto()
+
+class Purpose(Enum):
+  NADA = auto()
+  MATCHING = auto()
+
+
+class ResultType(Enum):
+  OK = auto()
+  NOT_OK = auto()
+
+
 class DataKeys(Enum):
   client_id =  'SLK'
   episode_id = 'PMSEpisodeID'
   per_client_asmt_id = 'RowKey'
-  assessment_id = 'SLK_RowKey'
+  assessment_id = f"{client_id}_{per_client_asmt_id}"  #'SLK_RowKey'
   assessment_date = 'AssessmentDate'
   episode_start_date = 'CommencementDate'
   episode_end_date = 'EndDate'

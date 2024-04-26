@@ -1,18 +1,17 @@
 from datetime import date
 import logging
-from typing import Optional
+# from typing import Optional
 import pandas as pd
 
 from data_config import keep_parent_fields, mulselect_option_to_nadafield
-from models.categories import Purpose
+from mytypes import Purpose
 from utils.base import check_for_string
-from utils.dtypes import convert_dtypes, fix_numerics
+from utils.dtypes import fix_numerics
 from utils.df_ops_base import concat_drop_parent, \
-                            drop_notes_by_regex \
+                            drop_fields_by_regex \
                       ,   drop_fields,\
                           to_num_yn_none, to_num_bool_none,transform_multiple
 from utils.fromstr import clean_and_parse_json
-from data_config import EstablishmentID_Program #, nada_cols #, activities_w_days
 from importers.aod import expand_drug_info
 
 # logger = mylogger.get(__name__)
@@ -29,18 +28,18 @@ def active_in_period(df:pd.DataFrame
     
     return in_period_df#, unique_clients
 
-def get_clients_for_eps_active_in_period(episode_df:pd.DataFrame,
-                                             start_date:date, end_date:date) \
-                                              -> tuple[list, pd.DataFrame]:
-    eps_active_inperiod = episode_df[( start_date<= episode_df.EndDate ) & (episode_df.CommencementDate <= end_date)]
-    clients_active_inperiod = eps_active_inperiod.SLK.unique().tolist()      
-    return clients_active_inperiod, eps_active_inperiod
+# def get_clients_for_eps_active_in_period(episode_df:pd.DataFrame,
+#                                              start_date:date, end_date:date) \
+#                                               ->  pd.DataFrame:
+#     eps_active_inperiod = episode_df[( start_date<= episode_df.EndDate ) & (episode_df.CommencementDate <= end_date)]
+#     # clients_active_inperiod = eps_active_inperiod.SLK.unique().tolist()      
+#     return eps_active_inperiod
 
 
-def get_clients_for_asmts_active_in_period(atom_df:pd.DataFrame, 
-                                           start_date:date, end_date:date) -> list:
-  atoms_in_period = atom_df[(start_date <= atom_df.AssessmentDate) & (atom_df.AssessmentDate <= end_date )]
-  return atoms_in_period.SLK.unique().tolist()   
+# def get_clients_for_asmts_active_in_period(atom_df:pd.DataFrame, 
+#                                            start_date:date, end_date:date) -> pd.DataFrame:
+#   atoms_in_period = atom_df[(start_date <= atom_df.AssessmentDate) & (atom_df.AssessmentDate <= end_date )]
+#   return atoms_in_period #.SLK.unique().tolist()   
 
 # TODO : creates blank rows: df_final[df_final.Program.isna()]
 # def get_surveydata_expanded(df:pd.DataFrame, prep_type:Purpose):#, prep_type:Literal['ATOM', 'NADA', 'Matching'] ) -> pd.DataFrame: 
@@ -136,7 +135,7 @@ def prep_dataframe_nada(df:pd.DataFrame):
   logging.debug(f"prep_dataframe of length {len(df)} : ")
   df2 = get_surveydata_expanded(df.copy(), Purpose.NADA)
  
-  df4 = drop_notes_by_regex(df2) # remove *Goals notes, so do before PDC step (PDCGoals dropdown)
+  df4 = drop_fields_by_regex(df2,regex='Comment|Note|ITSP') # remove *Goals notes, so do before PDC step (PDCGoals dropdown)
 
   df5, warnings_aod = expand_drug_info(df4)
 

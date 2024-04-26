@@ -1,4 +1,4 @@
-from models.categories import Purpose
+from mytypes import Purpose
 from pandas.api.types import CategoricalDtype
 
 keep_parent_fields = ['Program', 'Staff', 'AssessmentDate', 'SLK'] # if also in SurveyData 

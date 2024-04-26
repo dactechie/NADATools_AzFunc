@@ -1,7 +1,7 @@
 import logging
 import pandas as pd
 import numpy as np
-from  matching.mytypes import DataKeys as dk, \
+from mytypes import DataKeys as dk, \
   IssueType, ValidationError, ValidationWarning,\
        ValidationIssueTuple
 import utils.df_ops_base as ut

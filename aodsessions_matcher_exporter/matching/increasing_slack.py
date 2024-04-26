@@ -1,12 +1,12 @@
 import logging
 import pandas as pd
-from  matching.mytypes import DataKeys as dk
+from mytypes import DataKeys as dk
 from utils.df_ops_base import get_dupes_by_key, has_data
 
 def get_mask_datefit(row, slack_days=7):
     # Create a Timedelta for slack days
     slack_td = pd.Timedelta(days=slack_days)
-
+    # dk.assessment_date.value
     after_commencement = row['AssessmentDate'] >= (row['CommencementDate'] - slack_td)
     before_end_date = row['AssessmentDate'] <= (row['EndDate'] + slack_td)
     return after_commencement and before_end_date
@@ -27,6 +27,8 @@ def match_dates_increasing_slack(
       , max_slack:int=7):
   matching_ndays_slack = 0 
   asmt_key = dk.assessment_id.value
+  ep_st_dt = dk.episode_start_date.value
+  ep_ed_dt = dk.episode_end_date.value
   unmatched_asmt = slk_program_matched
   result_matched_dfs = []
   result_matched_df = pd.DataFrame()
@@ -69,7 +71,8 @@ def match_dates_increasing_slack(
 
   if len(unmatched_asmt) > 0 :
      logging.info(f"There are still {len(unmatched_asmt)} unmatched ATOMs")
-     logging.info(f"Unmatched by program: {len(unmatched_asmt.Program.value_counts())}")
+    #  logging.info(f"Unmatched by program: {len(unmatched_asmt.Program.value_counts())}")
+
     #  logger.info(f"There are still {len(unmatched_atoms)} unmatched ATOMs")
     #  logger.info(f"Unmatched by program: {len(unmatched_atoms.Program.value_counts())}")
 
@@ -79,8 +82,10 @@ def match_dates_increasing_slack(
   
   # add_to_issue_report(unmatched_by_date, IssueType.DATE_MISMATCH, IssueLevel.ERROR)
   mask_matched_eps = slk_program_matched.PMSEpisodeID.isin(result_matched_df.PMSEpisodeID)
+  
+  # in matching.main>merge_datasets, Episode is the 2nd param to pd.merge to Program_y
   unmatched_episodes = slk_program_matched[~mask_matched_eps] \
-                        [['PMSEpisodeID', 'SLK','Program']].drop_duplicates()
+                        [['PMSEpisodeID', dk.client_id.value ,'Program_y',ep_st_dt,ep_ed_dt]].drop_duplicates()
   
   result_matched_df = result_matched_df.drop_duplicates(subset=[asmt_key])#overlapping episodes -e.g.same end date +start date
   

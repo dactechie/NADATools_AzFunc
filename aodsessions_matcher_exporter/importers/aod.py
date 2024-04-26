@@ -3,6 +3,7 @@ import pandas as pd
 from data_config import PDC_ODC_ATOMfield_names as PDC_ODC_fields
 from importers.config import ATOM
 from utils.fromstr import range_average
+from utils.df_ops_base import drop_fields
 # import mylogging
 # logging = mylogging.get(__name__)
 
@@ -186,6 +187,7 @@ def expand_drug_info(df1:pd.DataFrame) ->  tuple[pd.DataFrame, list]:
   normd_drugs_df, warnings = normalize_pdc_odc(df1)
     # debug: normd_drugs_df.loc[2][normd_drugs_df.loc[2].notna()]
   cloned_df = df1.join(normd_drugs_df)
+  cloned_df = drop_fields(cloned_df,['PDC','ODC'])
     #debug : cloned_df.loc[2, [c for c in cloned_df.columns if 'Heroin_' in c]]
 
      

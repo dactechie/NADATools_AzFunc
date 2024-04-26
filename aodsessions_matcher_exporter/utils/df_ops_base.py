@@ -1,4 +1,5 @@
 
+import logging
 import datetime
 import pandas as pd
 
@@ -18,6 +19,7 @@ def safe_convert_to_int_strs(df1:pd.DataFrame, float_columns):
 
 def has_data(df:pd.DataFrame|None) -> bool:
    return not(df is None or df.empty)
+
 
 def get_dupes_by_key(df:pd.DataFrame, key:str):
   
@@ -60,6 +62,7 @@ def get_firststart_lastend(first_dt_series: pd.Series, last_dt_series: pd.Series
 
     return first_start, last_end
 
+
 def to_num_yn_none(x) -> str|None:
     if x == 'No':
         return '0'
@@ -67,6 +70,7 @@ def to_num_yn_none(x) -> str|None:
         return '1'
     else:
         return None
+
 
 def to_num_bool_none(x:bool|None) -> str|None:
   if pd.isna(x):
@@ -81,6 +85,7 @@ def transform_multiple(df1:pd.DataFrame, fields:list[str], transformer_fn)-> pd.
   # "None of [Index(['Past4WkBeenArrested', 'Past4WkHaveYouViolenceAbusive'], dtype='object')] are in the [columns]"
   fields_indf = [f for f in fields if f in df.columns]
   if not fields_indf:
+     logging.info(f"transform_multiple: fields {fields} not in df columns {df.columns}")
      return df
   # if len(fields_indf) !=  len(df.columns):
   #   fields_noindf = [f for f in fields if f not in df.columns]
@@ -90,9 +95,11 @@ def transform_multiple(df1:pd.DataFrame, fields:list[str], transformer_fn)-> pd.
   return df
 
 
-
 def drop_fields(df:pd.DataFrame, fieldnames:list | str | tuple):
-  to_remove = [col for col in fieldnames if col in df.columns ]
+  if isinstance(fieldnames, str):
+     to_remove = fieldnames     
+  else:
+    to_remove = [col for col in fieldnames if col in df.columns ]
   df2 = df.drop(to_remove, axis=1)
   return df2
 
@@ -100,21 +107,16 @@ def drop_fields(df:pd.DataFrame, fieldnames:list | str | tuple):
 def concat_drop_parent(df, df2 ,drop_parent_name:str) -> pd.DataFrame:
    return pd.concat([df.drop(drop_parent_name, axis=1), df2], axis=1)
 
+
 def get_non_empty_list_items(df:pd.DataFrame, field_name:str) -> pd.DataFrame:
   # get only rows where the list is not empty
   df2 = df[ df[field_name].apply(lambda x: isinstance(x,list) and len(x) > 0  )]
   return df2
 
 
-#df.loc[:,~df.columns.str.contains('num')]
-def drop_notes_by_regex(df):
-  # 'OtherAddictiveBehaviours.Other (detail in notes below)'
-  df2 = df.loc[:,~df.columns.str.contains('Comment|Note|ITSP', case=False)]
-
-  # df2 = df.loc[:,~df.columns.str.contains('Comment', regex=False)  # & ~df.columns.str.contains('Note', regex=False) 
-  #            ]
+def drop_fields_by_regex(df, regex:str):
+  df2 = df.loc[:,~df.columns.str.contains(regex, case=False)]
   return df2
-
 
 
 def merge_keys(df1:pd.DataFrame, merge_fields:list[str], separator:str='_')\
@@ -152,17 +154,17 @@ def normalize_first_element (l1:pd.DataFrame, dict_key:str):#, support:Optional[
   return result
 
 
-def get_right_only(matched_atoms: pd.DataFrame, atoms_df: pd.DataFrame, join_cols: list) -> pd.DataFrame:
-    # Perform an outer join
-    outer_merged_df = pd.merge(matched_atoms, atoms_df, how='outer',
-                               left_on=join_cols, right_on=join_cols, indicator=True)
-    # Filter rows that are only in atoms_df
-    only_in_atoms_df = outer_merged_df[outer_merged_df['_merge']
-                                       == 'right_only']
-    # Drop the indicator column and keep only columns from atoms_df
-    only_in_atoms_df = only_in_atoms_df.drop(columns=['_merge'])
-    cleaned_df = only_in_atoms_df.dropna(axis=1, how='all')
-    return cleaned_df
+# def get_right_only(matched_atoms: pd.DataFrame, atoms_df: pd.DataFrame, join_cols: list) -> pd.DataFrame:
+#     # Perform an outer join
+#     outer_merged_df = pd.merge(matched_atoms, atoms_df, how='outer',
+#                                left_on=join_cols, right_on=join_cols, indicator=True)
+#     # Filter rows that are only in atoms_df
+#     only_in_atoms_df = outer_merged_df[outer_merged_df['_merge']
+#                                        == 'right_only']
+#     # Drop the indicator column and keep only columns from atoms_df
+#     only_in_atoms_df = only_in_atoms_df.drop(columns=['_merge'])
+#     cleaned_df = only_in_atoms_df.dropna(axis=1, how='all')
+#     return cleaned_df
 
 
 """
@@ -199,18 +201,3 @@ def get_lr_mux_unmatched(left_df:pd.DataFrame, right_df:pd.DataFrame, merge_cols
 
   return left_non_matching, right_non_matching, common_left, common_right
 
-# """
-#   get_lr_mux
-#   LR - left and right join , mutually exclusive
-# """
-# def get_lr_mux(matched_atoms: pd.DataFrame, atoms_df: pd.DataFrame, join_cols: list) -> pd.DataFrame:
-#     # Perform an outer join
-#     outer_merged_df = pd.merge(matched_atoms, atoms_df, how='outer',
-#                                left_on=join_cols, right_on=join_cols, indicator=True)
-#     # Filter rows that are only in atoms_df
-#     only_in_atoms_df = outer_merged_df[outer_merged_df['_merge']
-#                                        == 'right_only']
-#     # Drop the indicator column and keep only columns from atoms_df
-#     only_in_atoms_df = only_in_atoms_df.drop(columns=['_merge'])
-#     cleaned_df = only_in_atoms_df.dropna(axis=1, how='all')
-#     return cleaned_df
