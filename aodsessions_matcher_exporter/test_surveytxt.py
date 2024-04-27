@@ -99,13 +99,10 @@ def get_asmts_4_active_eps(episode_df:pd.DataFrame,\
   return atoms_active_inperiod, eps_active_inperiod
 
 
-def write_validation_results(good_df:pd.DataFrame
-                             , validation_issues:list
+def write_validation_results(good_df:pd.DataFrame                            
                              , dates_ewdf:pd.DataFrame
                              , slk_program_ewdf:pd.DataFrame):
   ouput_folder = 'data/out/errors_warnings/'
-  vi = pd.DataFrame(validation_issues).drop_duplicates()
-  vi.to_csv(f'{ouput_folder}validation_issues.csv')
 
   dates_ewdf.drop('SurveyData', axis=1, inplace=True)
   dates_ewdf.to_csv(f'{ouput_folder}dates_ewdf.csv')
@@ -125,8 +122,9 @@ def main2():
   reporting_start = date (2023,7,1)
   reporting_end =  date(2024,3,31)
   # source_folder = 'data/in/'
-  eps_st = '20160701'
-  eps_end = '20240331'
+  # eps_st = '20160701'  eps_end = '20240331'
+  eps_st ='20220101'
+  eps_end= '20240331'
   episode_df = imptr_episodes.import_data(eps_st, eps_end)
   print("Episodes shape " , episode_df.shape)
   
@@ -142,8 +140,15 @@ def main2():
   print("filtered ATOMs shape " , a_df.shape)
   print("filtered Episodes shape " , e_df.shape)
  
-  validation_issues, good_df, dates_ewdf, slk_program_ewdf = \
-    filter_good_bad(e_df, a_df, slack_ndays=env.matching_ndays_slack)
+  mkeys = ['SLK','Program']
+  good_df, dates_ewdf, slk_program_ewdf, only_inas, only_inep = \
+    filter_good_bad(e_df, a_df, mergekeys_to_check=mkeys, slack_ndays=env.matching_ndays_slack)
+
+  mkeys = ['SLK']
+  good_df2, dates_ewdf2, slk_program_ewdf2, only_inas2, only_inep2 = \
+    filter_good_bad(e_df, only_inas, mergekeys_to_check=mkeys, slack_ndays=env.matching_ndays_slack)
+  
+  #only_inas[~only_inas.SLK_Program.isin(only_inas2.SLK_Program)]
 
   # TODO :Clients without a signal ATOM in the period
   in_period = good_df[(good_df.AssessmentDate >= reporting_start) & \
@@ -151,8 +156,8 @@ def main2():
   inperiod_set = set(in_period.SLK.unique())
   good_c_set = set(good_df.SLK.unique())
   
-  clients_w_zeroasmts_inperiod =  good_df[good_df.SLK.isin(good_c_set - inperiod_set)]
-  print(clients_w_zeroasmts_inperiod.SLK.unique())
+  clients_w_asmts_only_outperiod =  good_df[good_df.SLK.isin(good_c_set - inperiod_set)]
+  print(clients_w_asmts_only_outperiod.SLK.unique())
   # min(clients_w_zeroasmts_inperiod.AssessmentDate)
 
   df_reindexed = good_df.reset_index(drop=True)
@@ -171,7 +176,7 @@ def main2():
   # st.to_parquet('/data/out/surveytxt.parquet')
   st.to_csv(f'data/out/{reporting_start}_{reporting_end}_surveytxt.csv', index=False)
 
-  write_validation_results(good_df, validation_issues, dates_ewdf, slk_program_ewdf)
+  write_validation_results(good_df, dates_ewdf, slk_program_ewdf)
   
   return st
 

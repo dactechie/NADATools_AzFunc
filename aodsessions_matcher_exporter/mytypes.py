@@ -1,4 +1,4 @@
-from enum import Enum, auto
+from enum import Enum, StrEnum, auto
 from dataclasses import dataclass
 from typing import Optional #, KW_ONLY
 from collections import namedtuple
@@ -12,8 +12,8 @@ class DataType(Enum):
   # OTHER = auto()
 
 class Purpose(Enum):
-  NADA = auto()
-  MATCHING = auto()
+  NADA = 1
+  MATCHING = 2
 
 
 class ResultType(Enum):
@@ -21,7 +21,7 @@ class ResultType(Enum):
   NOT_OK = auto()
 
 
-class DataKeys(Enum):
+class DataKeys(StrEnum):
   client_id =  'SLK'
   episode_id = 'PMSEpisodeID'
   per_client_asmt_id = 'RowKey'
@@ -30,9 +30,9 @@ class DataKeys(Enum):
   episode_start_date = 'CommencementDate'
   episode_end_date = 'EndDate'
 
-class DatasetType(Enum):
-    ASSESSMENT = auto()
-    EPISODE = auto()
+class DatasetType(StrEnum):
+    ASSESSMENT = 'assessment'
+    EPISODE = 'episode'
 
 
 class IssueLevel(Enum):
@@ -76,4 +76,4 @@ class ValidationError(ValidationIssue):
 class ValidationWarning(ValidationIssue):
   issue_level:IssueLevel= IssueLevel.WARNING
 
-ValidationIssueTuple = namedtuple('ValidationIssue', ['mask', 'validation_issue'])
+ValidationMaskIssueTuple = namedtuple('ValidationIssue', ['mask', 'validation_issue'])
