@@ -24,27 +24,25 @@ def match_with_dates(ep_atom_df:pd.DataFrame, matching_ndays_slack: int):
 
 def match_dates_increasing_slack(
       ep_asmt_merged_df:pd.DataFrame
-      ,mergekeys_to_check
+     # ,mergekeys_to_check
       , max_slack:int=7):
   matching_ndays_slack = 0 
   asmt_key = dk.assessment_id.value
-  ep_st_dt = dk.episode_start_date.value
-  ep_ed_dt = dk.episode_end_date.value
+  # ep_stdt = dk.episode_start_date.value
+  # ep_eddt = dk.episode_end_date.value
   unmatched_asmt = ep_asmt_merged_df
   result_matched_dfs = []
   result_matched_df = pd.DataFrame()
   duplicate_rows_dfs = pd.DataFrame ()
-  # atom_df['SLK_RowKey'] =  atom_df['SLK'] + '_' + atom_df['RowKey']
-  # atom_df['SLK_RowKey'] =  atom_df['SLK'] + '_' + atom_df['RowKey']
-  # ep_df['SLK_Program'] =  ep_df['SLK'] + '_' + ep_df['Program']
 
-  # program_matched_slk_rks = slk_program_matched.SLK_RowKey
 
   while len(unmatched_asmt) > 0  and matching_ndays_slack <= max_slack:
       # Get matched assessments with the current slack
       matched_df = match_with_dates(unmatched_asmt, matching_ndays_slack)
       
+      #one Assessment matching to multiple episodes    
       duplicate_rows_df = get_dupes_by_key(matched_df, asmt_key)
+
                                           #  'SLK_Program_y')
       # y because during the merge , assmt df is on the right (so not x)
       # this checks if there ATOMs matching to multiple episodes
@@ -52,16 +50,14 @@ def match_dates_increasing_slack(
       if has_data(duplicate_rows_df):
         #logging.error("Duplicate rows", duplicate_rows_df)
         duplicate_rows_dfs = pd.concat([duplicate_rows_dfs, duplicate_rows_df] , ignore_index=True)
+        #TODO: remove duplicates from from matched_df ? is that what the below is doing ? : result_matched_df.drop_duplicates(subset=[asmt_key])
 
       if len(matched_df) == 0: # no more SLK+Program matches between Episode and ATOM
          break
-        # result_matched_df = pd.concat(result_matched_dfs, ignore_index=True)
-        # unmatched_by_date = unmatched_by_date[~unmatched_by_date.SLK_RowKey.isin(program_matched_slk_rks)]
-        # return result_matched_df, unmatched_by_date, errors_warnings
       
       # Add the matched DataFrame to the list
       result_matched_dfs.append(matched_df)
-
+      # remove from unmatched, any that matched in this iteration.
       unmatched_asmt = unmatched_asmt[~unmatched_asmt[asmt_key].isin(matched_df[asmt_key])]
 
       ## there may be other assessments for this SLK that can match if the slack dways are increased
@@ -82,15 +78,20 @@ def match_dates_increasing_slack(
     result_matched_df = pd.concat(result_matched_dfs, ignore_index=True)
   
   # add_to_issue_report(unmatched_by_date, IssueType.DATE_MISMATCH, IssueLevel.ERROR)
-  mask_matched_eps = ep_asmt_merged_df.PMSEpisodeID.isin(result_matched_df.PMSEpisodeID)
+  # mask_matched_eps = ep_asmt_merged_df.PMSEpisodeID.isin(result_matched_df.PMSEpisodeID)
   
-  # in matching.main>merge_datasets, Episode is the 2nd param to pd.merge, so Program_y
-  if dk.client_id.value == mergekeys_to_check:
-    unmatched_episodes = ep_asmt_merged_df[~mask_matched_eps] \
-                        [['PMSEpisodeID', dk.client_id.value ,ep_st_dt,ep_ed_dt]].drop_duplicates()
-  else:
-    unmatched_episodes = ep_asmt_merged_df[~mask_matched_eps] \
-                        [['PMSEpisodeID', dk.client_id.value ,f'{mergekeys_to_check}_y',ep_st_dt,ep_ed_dt]].drop_duplicates()
+  
+  # if dk.client_id.value == mergekeys_to_check:
+  #   unmatched_episodes = ep_asmt_merged_df[~mask_matched_eps] \
+  #                       [['PMSEpisodeID'
+  #                         , dk.client_id.value 
+  #                         ,ep_stdt,ep_eddt]].drop_duplicates()
+  # else:
+  #   # in matching.main>merge_datasets, Episode is the 2nd param to pd.merge, so Program_y
+  #   unmatched_episodes = ep_asmt_merged_df[~mask_matched_eps] \
+  #                       [['PMSEpisodeID'
+  #                         , dk.client_id.value,f'{mergekeys_to_check}_y'
+  #                         ,ep_stdt,ep_eddt]].drop_duplicates()
   
   result_matched_df = result_matched_df.drop_duplicates(subset=[asmt_key])#overlapping episodes -e.g.same end date +start date
   
@@ -101,7 +102,7 @@ def match_dates_increasing_slack(
   #remove unmatched asessments, if the episode-id doesn;t have other asmt matches #TODO TEST ME 
   # unmatched_asmt = unmatched_asmt[unmatched_asmt.PMSEpisodeID.isin(result_matched_df.PMSEpisodeID)]
 
-  return result_matched_df, unmatched_asmt, duplicate_rows_dfs, unmatched_episodes
+  return result_matched_df, unmatched_asmt, duplicate_rows_dfs #, unmatched_episodes
 
 
 # def test_match_increasing_slack():

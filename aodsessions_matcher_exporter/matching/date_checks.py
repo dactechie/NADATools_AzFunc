@@ -66,36 +66,35 @@ def assessment_date_validator(gaps_df, mit_dict:ValidationMaskIssueTuple) ->\
   if not ut.has_data(ew_df):
      return gaps_df, pd.DataFrame()
 
-  validation_issue:ValidationIssue = mit_dict.validation_issue
-  ew_df['issue_type'] = validation_issue.issue_type.value
-  ew_df['issue_level']= validation_issue.issue_level.value
-  ew_df['issue_msg']  = validation_issue.msg
+  vi:ValidationIssue = mit_dict.validation_issue
+  ew_df = ew_df.assign(issue_type=vi.issue_type.value
+                       , issue_level=vi.issue_level.value
+                      )
+  # ew_df['issue_msg']  = validation_issue.msg
 
   invalid_indices = ew_df.index.tolist()
-  matched_df = gaps_df.drop(invalid_indices)
+  remaining = gaps_df.drop(invalid_indices)
 
-  return matched_df, ew_df
+  return remaining, ew_df
 
 
-def gap_asesmtdate_epsd_boundaries(merged_df1:pd.DataFrame):
-  merged_df = merged_df1.copy()
-    # Calculating the difference in days
-  merged_df.loc[:,'days_from_start'] = \
-    (merged_df[dk.assessment_date.value] - merged_df[dk.episode_start_date.value]).apply(lambda x: x.days)    
-  merged_df.loc[:,'days_from_end'] = \
-    ( merged_df[dk.assessment_date.value] - merged_df[dk.episode_end_date.value]).apply(lambda x: x.days)
+def gap_asmtdate_epsd_boundaries(merged_df1:pd.DataFrame):
+  ad = dk.assessment_date.value
+  merged_df = merged_df1.assign(
+     days_from_start=(merged_df1[ad] - merged_df1[dk.episode_start_date.value]).apply(lambda x: x.days) 
+    , days_from_end=( merged_df1[ad] - merged_df1[dk.episode_end_date.value]).apply(lambda x: x.days)
+    )
   return merged_df
 
+  # merged_df = merged_df1.copy()
+  #   # Calculating the difference in days
+  # merged_df.loc[:,'days_from_start'] = \
+  #   (merged_df[dk.assessment_date.value] - merged_df[dk.episode_start_date.value]).apply(lambda x: x.days)    
+  # merged_df.loc[:,'days_from_end'] = \
+  #   ( merged_df[dk.assessment_date.value] - merged_df[dk.episode_end_date.value]).apply(lambda x: x.days)
+  # return merged_df
 
 
-# def get_ep_boundary_issues(df:pd.DataFrame,  ukey:str) \
-#                       -> list: #tuple[list, pd.DataFrame, pd.DataFrame]:
-#    # some service type don't have assessments / look at the duration of episode
-#   vi = ValidationError(      
-#                 msg =  f"No Assessment for episode.",
-#                 issue_type = IssueType.NO_ASMT_IN_EPISODE)
-#   vis = vd.add_validation_issues(df, vi, ukey)
-#   return vis
 
 
 def keep_nearest_mismatching_episode(unmatched_asmt:pd.DataFrame) -> pd.DataFrame:
@@ -105,9 +104,10 @@ def keep_nearest_mismatching_episode(unmatched_asmt:pd.DataFrame) -> pd.DataFram
    ew_df = ew_df.drop_duplicates('SLK_RowKey', keep='first')
    return ew_df
 
+
 def get_assessment_boundary_issues(dt_unmtch_asmt:pd.DataFrame, mask_isuetypes:list[ValidationMaskIssueTuple], ukey:str) \
                       -> pd.DataFrame:
-    gaps_df = gap_asesmtdate_epsd_boundaries(dt_unmtch_asmt)
+    gaps_df = gap_asmtdate_epsd_boundaries(dt_unmtch_asmt)
     nearest_remaining_mismatch = keep_nearest_mismatching_episode(gaps_df)
     full_ew_df =  pd.DataFrame()
     for v in mask_isuetypes:
@@ -115,12 +115,19 @@ def get_assessment_boundary_issues(dt_unmtch_asmt:pd.DataFrame, mask_isuetypes:l
         if ut.has_data(ew_df):
             full_ew_df = pd.concat([full_ew_df, ew_df], ignore_index=True)
 
-    
     if len(nearest_remaining_mismatch) > 0:
       logging.warn("matched_df should not have anything remaining.")
-
-    # full_ew_df = keep_nearest_mismatching_episode(full_ew_df)
-
-
+    
     return full_ew_df
 
+
+def asmt4clients_w_asmt_onlyoutof_period(
+      good_df:pd.DataFrame, start_date, end_date)-> pd.DataFrame:
+  in_period = good_df[(good_df.AssessmentDate >= start_date) & \
+                      ( good_df.AssessmentDate <= end_date )]
+  inperiod_set = set(in_period.SLK.unique())
+  good_c_set = set(good_df.SLK.unique())
+  
+  clients_w_asmts_only_outperiod = \
+      good_df[good_df.SLK.isin(good_c_set - inperiod_set)]
+  return clients_w_asmts_only_outperiod

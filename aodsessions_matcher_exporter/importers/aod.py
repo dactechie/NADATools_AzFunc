@@ -88,7 +88,7 @@ def get_typical_qty(item, field_names:dict[str, str], assessment)->  tuple[float
       if typical_qty == '0': # Don't bother with unit if qty = 0
          return 0.0, "", "0", None
       if typical_qty == 'Other':
-         logging.warn(f"'Other' used for HowMuchPerOcassion. Un-reportable value { assessment.get('RowKey')}")
+        #  logging.warn(f"'Other' used for HowMuchPerOcassion. Un-reportable value { assessment.get('RowKey')}")
          warning = get_warning(item, field_names['drug_name'], field_perocc, assessment)
          return 0.0, "", "", warning
       typical_qty = range_average(typical_qty)

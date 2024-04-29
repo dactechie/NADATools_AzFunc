@@ -17,6 +17,14 @@ def safe_convert_to_int_strs(df1:pd.DataFrame, float_columns):
   return df2
 
 
+def filter_out_common(df1:pd.DataFrame, df2:pd.DataFrame, key:str) -> pd.DataFrame:
+  df1_keys = set(df1[key])
+  df2_keys = set(df2[key])
+  common_keys = df1_keys.intersection(df2_keys)
+  filtered_df = df1[~df1[key].isin(common_keys)]
+  return filtered_df
+
+
 def has_data(df:pd.DataFrame|None) -> bool:
    return not(df is None or df.empty)
 

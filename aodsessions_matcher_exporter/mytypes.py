@@ -40,13 +40,13 @@ class IssueLevel(Enum):
   ERROR = auto()
 
 class IssueType(Enum):
-  DATE_MISMATCH = auto()
+  DATE_MISMATCH = auto()        #1
   ONLY_IN_ASSESSMENT = auto()
-  CLIENT_ONLYIN_ASMT = auto()
+  CLIENT_ONLYIN_ASMT = auto()   #3
   ONLY_IN_EPISODE = auto()
-  CLIENT_ONLYIN_EPISODE = auto()
-  ASMT_MATCHED_MULTI = auto()
-  NO_ASMT_IN_EPISODE = auto()
+  CLIENT_ONLYIN_EPISODE = auto()#5
+  ASMT_MATCHED_MULTI = auto() 
+  NO_ASMT_IN_EPISODE = auto()   #7
 
 
 @dataclass()
