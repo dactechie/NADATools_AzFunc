@@ -22,10 +22,12 @@ def range_average(range_str:str, separator:str='-'):
   
   elif separator in range_str:
     two_ints = range_str.split(separator)
-    return (int(two_ints[0])+int(two_ints[1]))/2
    
   else:
-    return np.nan
+    two_ints = range_str.split(' ')
+  
+  return (int(two_ints[0])+int(two_ints[-1]))/2
+    # return np.nan
   
 
 # # Function to safely parse JSON and handle errors
