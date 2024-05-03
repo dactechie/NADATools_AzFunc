@@ -49,6 +49,8 @@ class SampleTablesQuery(object):
 
 
                 for entity_chosen in queried_entities:
+                    timestamp = entity_chosen._metadata["timestamp"]
+                    entity_chosen['Timestamp']=timestamp #.strftime("%Y-%m-%dT%H:%M:%SZ") # type: ignore
                     yield entity_chosen
 
             except HttpResponseError as e:

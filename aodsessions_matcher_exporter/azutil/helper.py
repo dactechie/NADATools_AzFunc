@@ -1,5 +1,6 @@
 # from utils.environment import MyEnvironmentConfig
 # from azure.data.tables import  TableEntity
+from azure.data.tables import  EntityProperty
 from .az_tables_query import SampleTablesQuery
 # import mylogger
 # logger = mylogger.get(__name__)
@@ -24,7 +25,7 @@ from .az_tables_query import SampleTablesQuery
 
 table_config = {
   'ATOM':{
-       "fields": [u"PartitionKey", u"RowKey", u"Program", u"AssessmentDate", u"Staff", u"SurveyName", u"SurveyData"],
+       "fields": [u"PartitionKey", u"RowKey", u"Program", u"AssessmentDate", u"Staff", u"SurveyName", u"SurveyData", u"Timestamp"],
        
        "filter":  u"AssessmentDate ge @lower and AssessmentDate lt @upper and IsActive eq 1 and Program ne 'TEST' and Status eq 'Complete'"
   },
@@ -53,12 +54,15 @@ def get_results(table:str, start_date:int, end_date:int, filters:dict|None={}) -
     # fields = [u"PartitionKey", u"RowKey", u"Program", u"Staff", u"SurveyName", u"SurveyData"]
     # name_filter = u"AssessmentDate ge @lower and AssessmentDate lt @upper and IsActive eq 1 and Program ne 'TEST' and Status eq 'Complete'"
     all_filters = tconfig['filter']
-    if filters and 'Program' in filters:
-      prog_filter_list = [f"Program eq '{f}'" for f in filters['Program']]
-      progs_filter_str = f'({  " or ".join(prog_filter_list)  })'
+    if filters:
+      if 'Timestamp' in filters:
+        #  p = EntityProperty(filters['Timestamp']).strftime('%Y-%m-%dT%H:%M:%SZ')
+        all_filters = f"{all_filters} and Timestamp gt datetime'{filters['Timestamp']}'"
+      if 'Program' in filters:
+        prog_filter_list = [f"Program eq '{f}'" for f in filters['Program']]
+        progs_filter_str = f'({  " or ".join(prog_filter_list)  })'
             #  (Program eq 'MURMICE' or Program eq 'EUROPATH' or Program eq 'BEGAPATH')
-      all_filters = f"{all_filters} and {progs_filter_str}"
-
+        all_filters = f"{all_filters} and {progs_filter_str}"
 
     results = [
          dict(json_data)
@@ -66,3 +70,18 @@ def get_results(table:str, start_date:int, end_date:int, filters:dict|None={}) -
          stq.query_table(tconfig['fields'], filter_template=all_filters, query_params=assessment_commencement_date_limits)
          ]
     return results
+
+
+def get_fresh_data_only():
+  filter = {"Timestamp" :"2024-04-28T02:48:44Z"}
+  results =  get_results('ATOM', 20240101, 20240331, filters=filter)
+  return results
+
+# if __name__ == '__main__':
+#   #  from datetime import datetime
+#   # MyEnvironmentConfig.setup('dev')
+#   #  last_timestamp = date
+#   filter = {"Timestamp" :" ge datetime'2024-05-02T03:48:44.000Z'"}
+
+#   results = get_fresh_data(filter)
+#   print(results)

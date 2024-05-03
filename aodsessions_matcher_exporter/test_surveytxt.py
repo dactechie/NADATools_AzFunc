@@ -3,6 +3,7 @@ from datetime import date
 import pandas as pd
 # from utils.base import get_period_range
 # from utils.io import write_parquet
+from azutil.helper import get_fresh_data_only
 from utils.environment import MyEnvironmentConfig
 from matching.main import  filter_asmt_by_ep_programs, perform_date_matches, get_merged_for_matching, add_client_issues
 from mytypes import DataKeys as dk
@@ -183,10 +184,10 @@ def key_matching_errors(merge_key:str, slk_prog_onlyin:pd.DataFrame, it1:IssueTy
 def main2():
   MyEnvironmentConfig.setup('dev')
   env = MyEnvironmentConfig()
-  reporting_start = date (2023,7,1)
+  reporting_start = date (2020,1,1)
   reporting_end =  date(2024,3,31)
   # source_folder = 'data/in/'
-  eps_st = '20160701'  
+  eps_st = '20190701'  
   eps_end = '20240331'
   # eps_st ='20220101'
   # eps_end= '20240331'
@@ -194,8 +195,10 @@ def main2():
   episode_df = imptr_episodes.import_data(eps_st, eps_end)
   print("Episodes shape " , episode_df.shape)
   
-  asmt_st, asmt_end = "20150101",  "20240411"
+  # asmt_st, asmt_end = "20150101",  "20240411"
+  asmt_st, asmt_end = "20190701",  "20240331"
   atom_df = imptr_atoms.import_data(asmt_st, asmt_end)
+  # atom_df.to_csv('data/out/atoms.csv')
   print("ATOMs shape " , atom_df.shape)
   #FIXME: multiple atoms on the same day EACAR171119722 16/1/2024
   a_df, e_df = get_asmts_4_active_eps(episode_df, atom_df
@@ -216,23 +219,51 @@ def main2():
   mkeys = ['SLK','Program']
   merged_df, merge_key, match_key, slk_prog_onlyinass, slk_prog_onlyin_ep= \
       get_merged_for_matching(e_df, a_ineprogs
-                          ,mergekeys_to_check=mkeys)
+                          ,mergekeys_to_check=mkeys
+                          , match_keys=[dk.episode_id.value
+                                                         , dk.assessment_id.value]
+                          )
   good_df, dates_ewdf = perform_date_matches(merged_df
                                              , match_key
                                              , slack_ndays=env.matching_ndays_slack)
   # exclude already matched assessments
   # len(a_df) should be = len(merged_df) + len(slk_prog_onlyinass)
 
+  # retry mismatching dates, with just SLK 
+  # (in case the assesssment was made in a program different to the episode program)
   mkeys = ['SLK']
-  merged_df2,merge_key2, match_key2, slk_onlyinass, _= \
-      get_merged_for_matching(e_df, slk_prog_onlyinass #a_inepregs
-                          ,mergekeys_to_check=mkeys)
-  good_df2, dates_ewdf2 = perform_date_matches(merged_df2
-                                             , match_key2
-                                             , slack_ndays=env.matching_ndays_slack)
+  # has to be an error - warnings (0-7 days) would have been matched
+  # dtmtch_err_slkprog = dates_ewdf[dates_ewdf['issue_level']== IssueLevel.ERROR.value]
+  # slk_prpg_unmatched = merged_df[merged_df[asmt_key].isin(dtmtch_err_slkprog[asmt_key].unique())]
+
+ 
+  #when matching with just SLK, PMSEpisodeID is not present,
+  # instead we have _x (from assessment) and _y from episode
+  # we use the Episode's ID as the match Key
+  # merged_df2,merge_key2, match_key2, slk_onlyinass, _= \
+  #     get_merged_for_matching(e_df, slk_prpg_unmatched
+  #                         ,mergekeys_to_check=mkeys
+  #                         , match_keys=[dk.episode_id.value + '_y'
+  #                                                        , dk.assessment_id.value])
+  # good_df2, dates_ewdf2 = perform_date_matches(merged_df2
+  #                                            , match_key2
+  #                                            , slack_ndays=env.matching_ndays_slack)
+  not_matched_asmts = a_ineprogs[~a_ineprogs[asmt_key].isin(good_df[asmt_key].unique())]
+  # a_ineprogs , a_notin_eprogs = filter_asmt_by_ep_programs (e_df, not_matched_asmts)
+  merged_df3,merge_key2, match_key3, slk_onlyinass, _ =  get_merged_for_matching(e_df
+                                                                                  ,not_matched_asmts
+                                                                                  ,mergekeys_to_check=mkeys
+                                                                                  , match_keys=[dk.episode_id.value 
+                                                         , dk.assessment_id.value])
+  merged_df4 = merged_df3[merged_df3['Program_x'] != merged_df3['Program_y']]
+  good_df2, dates_ewdf2 = perform_date_matches(merged_df4
+                                             , match_key3
+                                             , slack_ndays=env.matching_ndays_slack)  
+
 
   # program may be different for this client,asessment,  but highlight unlikely to be on the same day, so exclude :
-  good_df2['Ep_AsDate'] = good_df2['SLK']+'_'+ good_df2.PMSEpisodeID  +'_' + good_df2.PMSEpisodeID_SLK_RowKey.str[-8:]
+  #(-8 - asmt date)
+  good_df2['Ep_AsDate'] = good_df2['SLK']+'_'+ good_df2.PMSEpisodeID  +'_' + good_df2.PMSEpisodeID_SLK_RowKey.str[-8:] 
   good_df['Ep_AsDate'] = good_df['SLK']+'_'+ good_df.PMSEpisodeID  +'_' + good_df.PMSEpisodeID_SLK_RowKey.str[-8:]
   
   good_df2_v2 = utdf.filter_out_common(good_df2, good_df, key='Ep_AsDate')
@@ -262,45 +293,19 @@ def main2():
     # SLK+Program match but date not in +/- 7 days of ep boundaries
     # SLK match but date not in +/- 7 days of ep boundaries  
    
-
-
-  # good_df, dates_ewdf, slk_program_keys_ewdf, only_inas, only_inep = \
-  #   filter_good_bad(e_df, a_inepregs
-  #                   , mergekeys_to_check=mkeys
-  #                   , slack_ndays=env.matching_ndays_slack)
-
-  # good_df.loc[:,'highest_level_matchkey'] = "_".join(mkeys)
-
-  # # try a 'lower common demomniator' key with the unmatched assessments: only_inas
-  # mkeys = ['SLK'] #, only_inas2, only_inep2
-  # good_df2, dates_ewdf2, slk_keys_ewdf, _, only_inep2 = \
-  #   filter_good_bad(e_df, only_inas
-  #                   , mergekeys_to_check=mkeys
-  #                   , slack_ndays=env.matching_ndays_slack)
-  # good_df2.loc[:,'highest_level_matchkey'] = "_".join(mkeys)
-
-  # concat good_df2 and good_df
-  # union - slk_ewdf and slk_program_ewdf 
-    #- keep lowest level of mismatch (prefer SLK mismatch over SLK+Program)
-
-  #a_inepregs = merge_keys(a_inepregs, ['SLK','Program'])
-  # add warnings back to original data: ----------------------
-  # dates_ewdf2[dates_ewdf2.issue_level == 1]
-  # len(e_df[e_df.SLK.isin(onlyin_amst_warn.SLK)])
-
   final_good = pd.concat([good_df, good_df2_v2])
   
-
-  
-   #one Assessment matching to multiple episodes    
+#one Assessment matching to multiple episodes    
     # duplicate_rows_df = get_dupes_by_key(matched_df, asmt_key)
   #eousides with no assessment in the reporting period
   # mask_matched_eps = ep_asmt_merged_df.PMSEpisodeID.isin(result_matched_df.PMSEpisodeID)
 
-  
+  # previously marked as errors, with the 2nd round of (relaxed i.e. SLK-only matching)
+  # we mark them as warnings, as they matches were included in good_df2
+  dates_ewdf.loc[dates_ewdf.SLK_RowKey.isin(final_good.SLK_RowKey),'issue_level'] = 1
   final_dates_ew = pd.concat([dates_ewdf, dates_ewdf2]).reset_index(drop=True)
 
-  # TODO :Clients without a signal ATOM in the period 
+  # TODO :Clients without a single ATOM in the period 
     #  part of an episode that has an active period in the reporting period
     #- before start of period : may have reported to NADA
     # after end of period :would report to NADA in the next period
@@ -327,7 +332,7 @@ def main2():
   # start_str, end_str = get_period_range(min_date, max_date)
   # write_result = write_parquet(res, f"data/out/nada_{start_str}-{end_str}.parquet")
   # res = pd.read_csv('data/out/nada.csv')
-  # TODO : Converyt dates to ddmmyyyy
+
 
   st = out_exporter.generate_finaloutput_df(res)
   # st.to_parquet('/data/out/surveytxt.parquet')
@@ -341,6 +346,19 @@ def main2():
   return st
 
 
+def main ():
+  MyEnvironmentConfig.setup('dev')
+  # env = MyEnvironmentConfig()  
+  # \2024-05-02T03:48:44.000Z
+
+
+  results = get_fresh_data_only()
+  max_timestamp = max(item["Timestamp"] for item in results)
+  s = max_timestamp.strftime("%Y-%m-%dT%H:%M:%SZ") # type: ignore
+  print(results)
+  print("max time", s)
+  
+
 if __name__ == "__main__":
-    res = main2()
+    res = main()
 

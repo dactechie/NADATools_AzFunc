@@ -219,6 +219,7 @@ def filter_asmt_by_ep_programs(
 def get_merged_for_matching(episode_df: pd.DataFrame
                             , assessment_df: pd.DataFrame
                             , mergekeys_to_check:list[str]
+                            , match_keys:list[str]
                             ):
 
     #ew_df - Errors Warnings Dataframe
@@ -237,8 +238,7 @@ def get_merged_for_matching(episode_df: pd.DataFrame
     merged_df, match_key = merge_datasets(ep_df_inboth
                                            , as_df_inboth
                                            , common_cols=mergekeys_to_check
-                                           , match_keys=[dk.episode_id.value
-                                                         , dk.assessment_id.value])
+                                           , match_keys=match_keys)
     return merged_df, merge_key, match_key, only_in_as, only_in_ep
                                                         
 """
