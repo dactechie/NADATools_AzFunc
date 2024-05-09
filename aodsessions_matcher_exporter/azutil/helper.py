@@ -1,6 +1,6 @@
 # from utils.environment import MyEnvironmentConfig
 # from azure.data.tables import  TableEntity
-from azure.data.tables import  EntityProperty
+# from azure.data.tables import  EntityProperty
 from .az_tables_query import SampleTablesQuery
 # import mylogger
 # logger = mylogger.get(__name__)
@@ -25,9 +25,8 @@ from .az_tables_query import SampleTablesQuery
 
 table_config = {
   'ATOM':{
-       "fields": [u"PartitionKey", u"RowKey", u"Program", u"AssessmentDate", u"Staff", u"SurveyName", u"SurveyData", u"Timestamp"],
-       
-       "filter":  u"AssessmentDate ge @lower and AssessmentDate lt @upper and IsActive eq 1 and Program ne 'TEST' and Status eq 'Complete'"
+       "fields": [u"PartitionKey", u"RowKey", u"Program", u"AssessmentDate", u"Staff", u"SurveyName", u"SurveyData", u"Timestamp"],       
+       "filter":  u"AssessmentDate ge @lower and AssessmentDate le @upper and IsActive eq 1 and Program ne 'TEST' and Status eq 'Complete'"
   },
   'MDS':{
        "fields":['PartitionKey',	'GEOGRAPHICAL_LOCATION',	'RowKey',	'SLK'
@@ -44,20 +43,24 @@ def get_results(table:str, start_date:int, end_date:int, filters:dict|None={}) -
     stq = SampleTablesQuery(table)    
     
     tconfig = table_config.get(table, {})
+    
     if not tconfig:
       raise Exception("Unknown table name")     
     if not tconfig.get("filter"):
        assessment_commencement_date_limits = None
     else:
        assessment_commencement_date_limits = {u"lower": start_date, u"upper": end_date}
-         
-    # fields = [u"PartitionKey", u"RowKey", u"Program", u"Staff", u"SurveyName", u"SurveyData"]
-    # name_filter = u"AssessmentDate ge @lower and AssessmentDate lt @upper and IsActive eq 1 and Program ne 'TEST' and Status eq 'Complete'"
+
+    fields:list = tconfig['fields']
     all_filters = tconfig['filter']
     if filters:
-      if 'Timestamp' in filters:
-        #  p = EntityProperty(filters['Timestamp']).strftime('%Y-%m-%dT%H:%M:%SZ')
+      if 'Timestamp' in filters:        
         all_filters = f"{all_filters} and Timestamp gt datetime'{filters['Timestamp']}'"
+        # if we are rfreshing , we want to know those that were removed, so we can remove them from the cached data
+        all_filters = all_filters.replace("and IsActive eq 1 ", "", 1)
+        fields.append(u"IsActive")
+
+        #  and IsActive eq 1
       if 'Program' in filters:
         prog_filter_list = [f"Program eq '{f}'" for f in filters['Program']]
         progs_filter_str = f'({  " or ".join(prog_filter_list)  })'
@@ -67,15 +70,15 @@ def get_results(table:str, start_date:int, end_date:int, filters:dict|None={}) -
     results = [
          dict(json_data)
          for json_data in 
-         stq.query_table(tconfig['fields'], filter_template=all_filters, query_params=assessment_commencement_date_limits)
+         stq.query_table(fields, filter_template=all_filters, query_params=assessment_commencement_date_limits)
          ]
     return results
 
 
-def get_fresh_data_only():
-  filter = {"Timestamp" :"2024-04-28T02:48:44Z"}
-  results =  get_results('ATOM', 20240101, 20240331, filters=filter)
-  return results
+# def get_fresh_data_only():
+#   filter = {"Timestamp" :"2024-04-28T02:48:44Z"}
+#   results =  get_results('ATOM', 20240101, 20240331, filters=filter)
+#   return results
 
 # if __name__ == '__main__':
 #   #  from datetime import datetime

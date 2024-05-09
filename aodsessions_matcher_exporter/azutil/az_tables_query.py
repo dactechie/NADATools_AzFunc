@@ -14,7 +14,7 @@ import logging
 import pandas as pd
 from azure.data.tables import TableClient, TableEntity#, TableTransaction
 from azure.core.exceptions import HttpResponseError
-from utils.environment import MyEnvironmentConfig
+from utils.environment import ConfigKeys, MyEnvironmentConfig
 # import mylogging
 
 # logging = mylogging.get(__name__)
@@ -22,9 +22,9 @@ from utils.environment import MyEnvironmentConfig
 class SampleTablesQuery(object):
 
     def __init__(self, table_name:str):
-      config = MyEnvironmentConfig()
+      config = MyEnvironmentConfig().config
     
-      self.connection_string = config.connection_string
+      self.connection_string = str(config.get(ConfigKeys.AZURE_STORAGE_CONNECTION_STRING,""))
 
       self.table_name = table_name
       logging.info(f"SampleTablesQuery initialised with connection_string: {self.connection_string}")

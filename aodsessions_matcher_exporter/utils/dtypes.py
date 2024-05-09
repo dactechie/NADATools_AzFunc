@@ -125,16 +125,17 @@ def define_all_categories(df:pd.DataFrame):
   
 ###############################################
 
-def convert_to_datetime(series:pd.Series, format:str='%Y%m%d'):# -> pd.Series:
+def convert_to_datetime(series:pd.Series, format:str='%Y%m%d', fill_blanks=True):# -> pd.Series:
   """
   Blanks are filled with today/now datetime
   """
   # df [column_names] =
-  dt_s =  pd.to_datetime(series.astype(str).str.zfill(8) , format=format, errors='coerce')#.dt.date
+  datetime_series =  pd.to_datetime(series.astype(str).str.zfill(8) , format=format, errors='coerce')#.dt.date
   now = pd.Timestamp.now()
 
   # Replace NaT values with the current date and time
-  datetime_series = dt_s.fillna(now)
+  if fill_blanks:
+    datetime_series = datetime_series.fillna(now)
   date_series = datetime_series.dt.date
 
   return date_series

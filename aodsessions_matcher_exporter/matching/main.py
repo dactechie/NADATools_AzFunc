@@ -1,13 +1,124 @@
 import logging
+from datetime import date
 import pandas as pd
-from mytypes import DataKeys as dk,\
-      IssueType, IssueLevel
-      #  ValidationIssueTuple
+from mytypes import DataKeys as dk, Purpose
+# from utils.environment import MyEnvironmentConfig, ConfigKeys
 import utils.df_ops_base as utdf
 from utils import base as utbase
 import matching.date_checks as dtchk
-
 from matching import increasing_slack as mis
+
+
+def get_data_for_matching(ep_imptr, asmt_imptr, eps_st, eps_end
+                          , reporting_start, reporting_end
+                          , assessment_start, assessment_end
+                          , slack_for_matching:int, refresh:bool=True) \
+                            -> tuple[pd.DataFrame, pd.DataFrame]:
+
+  episode_df = ep_imptr.import_data(eps_st, eps_end)
+  if not utdf.has_data(episode_df):
+      logging.error("No episodes")
+      return pd.DataFrame(), pd.DataFrame()
+  print("Episodes shape ", episode_df.shape)
+
+  atom_df = asmt_imptr.import_data(assessment_start
+                                   , assessment_end
+                                   , purpose=Purpose.NADA
+                                   , refresh=refresh
+            )
+  # atom_df.to_csv('data/out/atoms.csv')
+  print("ATOMs shape ", atom_df.shape)
+  # FIX ME: multiple atoms on the same day EACAR171119722 16/1/2024
+
+  a_df, e_df, inperiodatom_slknot_inep,\
+      inperiodep_slk_not_inatom = get_asmts_4_active_eps(
+              episode_df, atom_df, start_date=reporting_start
+            , end_date=reporting_end, slack_ndays=slack_for_matching)
+  e_df.to_csv('data/out/active_episodes.csv')
+  # a_df = filter_atoms_for_matching (min_date, max_date, atom_df)
+  print("filtered ATOMs shape ", a_df.shape)
+  print("filtered Episodes shape ", e_df.shape)
+  return a_df, e_df
+
+
+def active_in_period(df:pd.DataFrame
+                     , startfield:str, endfield:str
+                     , start_date:date, end_date:date
+                    #  , clientid_field:Optional[str]=None
+                     ) -> pd.DataFrame:
+
+    in_period_df = df[(start_date <= df[endfield]) & (df[startfield] <= end_date)]
+    
+    return in_period_df#, unique_clients
+
+def get_asmts_4_active_eps(episode_df: pd.DataFrame,
+                           atoms_df: pd.DataFrame,
+                           start_date: date,
+                           end_date: date,
+                           slack_ndays: int) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """
+      Q: Why do we need to extract ATOMs before the reporting period?
+      A: To ensure the stage-number is accurate. 
+
+      1. Get all episodes that were active at any point during the period.
+      2. To get the list of ATOMs active in the period, give the AssessmentDate range of:
+          a. the start date of the earliest episode in step 1, minus n days for some slack.
+          b. the end date of the reporting period.
+
+        Important: 
+        1. There may be ATOM assessments fro clients who are NOT in the list from step 1
+        we return them anyway as the 'atoms_active_inperiod' and the validation steps later 
+        would flag them.
+
+        2. There may be no ATOM assessments in the reporting period, even though the matched episode
+        had an active period (> say 28 days) in the reporting period.
+    """
+
+    ep_stfield, edfield = dk.episode_start_date.value, dk.episode_end_date.value
+    asmtdt_field = dk.assessment_date.value
+
+    eps_active_inperiod =\
+        active_in_period(episode_df, ep_stfield, edfield,
+                         start_date, end_date)
+    # active_clients_eps, eps_active_inperiod =\
+    #     get_clients_for_eps_active_in_period(episode_df, start_date, end_date)
+
+    # all_eps_4clients_w_active_eps_inperiod = episode_df[episode_df.SLK.isin(active_clients_eps)]
+
+    # long running episodes should be eliminated as well.
+    mask_within_ayear = (pd.to_datetime(eps_active_inperiod['EndDate']) - pd.to_datetime(
+        eps_active_inperiod['CommencementDate'])).dt.days <= 366
+    eps_active_inperiod = eps_active_inperiod.assign(
+        within_one_year=mask_within_ayear)
+    # eps_morethan_ayear = eps_active_inperiod[~mask_within_ayear]
+    # logging.error(f"There are {len(eps_morethan_ayear)} episodes (active in reporting period) that were longer than a year")
+
+    # eps_active_inperiod = eps_active_inperiod[mask_within_ayear]
+    # logging.warning("Filtered out episodes if they were more than a year long")
+
+    # TODO: parameterize
+    min_asmt_date = min(
+        eps_active_inperiod[ep_stfield]) - pd.Timedelta(days=slack_ndays)
+
+    atoms_active_inperiod =\
+        active_in_period(atoms_df, asmtdt_field, asmtdt_field,
+                         min_asmt_date, end_date)
+
+    common_slk_atom_mask = atoms_active_inperiod.SLK.isin(
+        eps_active_inperiod.SLK)
+    atoms_slk_not_in_ep = atoms_active_inperiod[~common_slk_atom_mask]
+    inperiodatom_slknot_inep = active_in_period(
+        atoms_slk_not_in_ep, asmtdt_field, asmtdt_field, start_date, end_date)
+
+    commonslk_ep_mask = eps_active_inperiod.SLK.isin(atoms_active_inperiod.SLK)
+    ep_slk_not_in_atom = eps_active_inperiod[~commonslk_ep_mask]
+    inperiodep_slk_not_inatom = active_in_period(
+        ep_slk_not_in_atom, ep_stfield, edfield, start_date, end_date)
+
+    return atoms_active_inperiod[common_slk_atom_mask], eps_active_inperiod[commonslk_ep_mask], \
+        inperiodatom_slknot_inep, inperiodep_slk_not_inatom
+
+
 
 # from  matching.mytypes import ValidationIssue
 def setup_df_for_check(episode_df: pd.DataFrame, \
@@ -65,17 +176,6 @@ def merge_datasets(episode_df:pd.DataFrame, assessment_df:pd.DataFrame, common_c
     return merged_df, unique_key
 
 
-
-
-# def get_ep_boundary_issues(df:pd.DataFrame,  ukey:str) \
-#                       -> list: #tuple[list, pd.DataFrame, pd.DataFrame]:
-#    # some service type don't have assessments / look at the duration of episode
-#   vi = ValidationError(      
-#                 msg =  f"No Assessment for episode.",
-#                 issue_type = IssueType.NO_ASMT_IN_EPISODE)
-#   vis = vd.add_validation_issues(df, vi, ukey)
-#   return vis
-
 def perform_date_matches(merged_df: pd.DataFrame, match_key:str, slack_ndays:int):
     
     # include all the warnings in the good_Df using matching with increasing slack
@@ -98,123 +198,6 @@ def perform_date_matches(merged_df: pd.DataFrame, match_key:str, slack_ndays:int
     return  result_matched_df, ew_df
     
 
-# def perform_date_matches(merged_df: pd.DataFrame, unique_key:str, slack_ndays:int):
-    
-#     # include all the warnings in the good_Df using matching with increasing slack
-#     result_matched_df, dt_unmat_asmts, duplicate_rows_dfs, unmatched_eps_df = \
-#       mis.match_dates_increasing_slack (merged_df , max_slack=slack_ndays)
-
-#     mask_isuetype_map = dtchk.date_boundary_validators(limit_days=slack_ndays)
-#     # validation_issues, matched_df, invalid_indices =
-#     validation_issues, ew_df = dtchk.get_assessment_boundary_issues(\
-#        dt_unmat_asmts, mask_isuetype_map, unique_key)
-    
-#     vis = dtchk.get_ep_boundary_issues(unmatched_eps_df, dk.episode_id.value)
-#     if vis:
-#       validation_issues.extend(vis)
-    
-#     # DO THe same thing for duplicate rows
-#     vis_dupe = dtchk.get_ep_boundary_issues(duplicate_rows_dfs, dk.episode_id.value)
-#     if vis_dupe:
-#       validation_issues.extend(vis_dupe)
-
-#     # print(f"\n\n \t\t\tbut returning {result_matched_df.head()}")
-#     # print(validation_issues)
-#     # return validation_issues, good_df, ew_df
-#     return validation_issues, result_matched_df, ew_df
-    
-
-"""
-  Inter Dataset Matching Keys (IDMK) - Assessment & Episodes  : SLK + Program + ClientType
-            Purpose:  Before checking for Date matches, we need to link  the two dataset something common
-
-  Dataset Unique IDs (DUID) :
-           Assesment :  SLK+RowKey
-           Episode   : EpisodeID or if absent SLK + Program + CommencementDate + ClientType
-
-      Purpose: Uniquely identify a record in eith
-
-"""
-def add_client_issues(only_in_ep, only_in_as):
-    df_list = []
-    
-    if utdf.has_data(only_in_ep):
-        only_in_ep_copy = only_in_ep.copy()
-        only_in_ep_copy['issue_type'] = IssueType.CLIENT_ONLYIN_EPISODE
-        df_list.append(only_in_ep_copy)
-    
-    if utdf.has_data(only_in_as):
-        only_in_as_copy = only_in_as.copy()
-        only_in_as_copy['issue_type'] = IssueType.CLIENT_ONLYIN_ASMT
-        df_list.append(only_in_as_copy)
-    
-    if df_list:
-        full_ew_df = pd.concat(df_list, ignore_index=True)
-    else:
-        full_ew_df = pd.DataFrame()
-    
-    return full_ew_df
-     
-# def add_client_issues(only_in_ep, only_in_as, mkey):
-#   full_ew_df = pd.DataFrame()
-#   validation_issues = []
-#   if utdf.has_data(only_in_ep):
-#     vi_only_in_ep = ValidationError(
-#                 msg = f"Only in Episode.",
-#                 issue_type = IssueType.CLIENT_ONLYIN_EPISODE)
-#     vis = vd.add_validation_issues(only_in_ep, vi_only_in_ep, mkey)        
-#     validation_issues.extend(vis)        
-#     full_ew_df = only_in_ep #pd.concat([full_ew_df, only_in_ep] , ignore_index=True)
-
-#   if utdf.has_data(only_in_as):
-#     vi_only_in_as = ValidationError(
-#                 msg = f"Only in Assessment.",
-#                 issue_type = IssueType.CLIENT_ONLYIN_ASMT)
-#     vis = vd.add_validation_issues(only_in_as, vi_only_in_as, mkey)
-#     full_ew_df = pd.concat([full_ew_df, only_in_as] , ignore_index=True)
-#     validation_issues.extend(vis)
-#   return validation_issues, full_ew_df
-
-
-# def clientassessments_by_program_relation(a_df: pd.DataFrame, allowed_programs) -> tuple:
-#     """
-#     Categorize client assessments based on their relation to the specified NADAPrograms.
-
-#     Args:
-#         a_df (pd.DataFrame): The input DataFrame containing client assessments.
-#         NADAPrograms (ndarray): The list of NADA programs to compare against.
-
-#     Returns:
-#         tuple: A tuple containing two DataFrames:
-#             - a_df_related: Assessments for clients where all programs are in NADAPrograms.
-#             - a_df_unrelated: Assessments for clients where at least one program is not in NADAPrograms.
-#     """
-#     # Group 1: Identify SLKs having one or more non-NADA assessments
-#     # SLK: DEF may only have TSS programs, so DEF would be in this list
-#     # SLK:ABC may have a TSS and a NADA program -  so ABC would be in this list  due to the TSS asmt
-#     slks_w_nonNADA_asmt = a_df.loc[~a_df.Program.isin(allowed_programs), 'SLK'].unique()
-
-#     # Group 2: Identify SLKs where all assessments are in NADAPrograms.
-#     # From the original asmt list, match SLKs where it does NOT match the 
-#     #           first group (i.e. having one or more non-NADA assessments)
-#     slks_all_NADA = a_df.loc[~a_df.SLK.isin(slks_w_nonNADA_asmt), 'SLK'].unique()
-
-#     # Filter assessments for clients related to NADAPrograms
-#     a_df_related = a_df[a_df.SLK.isin(slks_all_NADA)]
-
-#     # Filter assessments for clients with at least one unrelated program
-#     a_df_unrelated = a_df[a_df.SLK.isin(slks_w_nonNADA_asmt)]
-
-#     return a_df_related, a_df_unrelated
-
-def filter_asmt_by_ep_programs(
-        ep_df: pd.DataFrame, a_df:pd.DataFrame)\
-            -> tuple[pd.DataFrame, pd.DataFrame]:
-  ep_programs = ep_df['Program'].unique()
-  aprog_in_any_eprog =a_df['Program'].isin(ep_programs)
-  a_df_epprog = a_df[aprog_in_any_eprog]
-  return a_df_epprog, a_df[~aprog_in_any_eprog]
-   
 
 def get_merged_for_matching(episode_df: pd.DataFrame
                             , assessment_df: pd.DataFrame
@@ -241,106 +224,3 @@ def get_merged_for_matching(episode_df: pd.DataFrame
                                            , match_keys=match_keys)
     return merged_df, merge_key, match_key, only_in_as, only_in_ep
                                                         
-"""
-    # before Prepare for  date matching 
-    #clients may move in and out of CoCo/Arcadia, don;t want to report those as errors, so don't bother matching them
-    # as_df_inboth = filter_asmt_by_ep_programs(as_df_inboth, ep_df_inboth)  -> done by caller
-"""
-# def filter_good_bad(merged_df: pd.DataFrame
-#                    # , merge_key:str                 
-#                     , match_key:str
-#                     , slack_ndays:int) -> tuple[pd.DataFrame
-#                                                 , pd.DataFrame
-#                                            ]:
-
-
-#     good_df, dates_ewdf = perform_date_matches(merged_df
-#                                              #  , merge_key  # sLK or SLK+Program  
-#                                               , match_key #epid_slk_rowkey
-#                                               , slack_ndays=slack_ndays)
-
-#     return good_df, dates_ewdf
-
-#     # TODO: collect all errors and warnings
-    # return errors, warnings, and good dataset
-
-
-
-# def filter_good_bad(episode_df: pd.DataFrame
-#                     , assessment_df: pd.DataFrame
-#                     , slack_ndays:int) -> tuple[list, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-#     validation_issues = []
-#     slk_program_ewdf = pd.DataFrame()
-#     fl_clntid = dk.client_id.value
-
-#     keys_to_check = [(fl_clntid,), (fl_clntid, "Program")]  # with client_type
-
-#     # 1. check for SLK in both datasets.
-#     only_in_ep, only_in_as, ep_df_inboth, as_df_inboth, mkey = check_keys(
-#         episode_df, assessment_df, k_tup=keys_to_check[0]
-#     )
-#     if any(only_in_ep) or any(only_in_as):
-#       only_in_as_ep_prog = filter_asmt_by_ep_programs(only_in_as, ep_df_inboth)
-#       vis, slk_program_ewdf = add_client_issues(only_in_ep, only_in_as_ep_prog, mkey)
-#       validation_issues.extend(vis)
-
-#    # 2. check for SLK +Program in both datasets.
-
-#     #clients may move in and out of CoCo/Arcadia, don;t want to report those as errors
-#     as_df_inboth_ep_prog = filter_asmt_by_ep_programs(as_df_inboth, ep_df_inboth)
-      
-#     # # we only want to match against clients which who had all programs in list of episodes' programs
-#     ### as_df_inboth, asdf_nonnada_only  = clientassessments_by_program_relation(as_df_inboth
-#     ## #                                            , ep_df_inboth['Program'].unique())
-#     ##non_epprog_clients = len(asdf_nonnada_only[dk.client_id.value].unique())
-#     ##logging.info(f"There were {len(asdf_nonnada_only)} assessments ({non_epprog_clients} clients),\
-#     ##              who had ATOMs only in programs different from epispde-programs.")
-
-#     # only_in_ep, only_in_as, ep_df_inboth_prg, as_df_inboth_prg, mkey = check_keys(
-#     #     ep_df_inboth, as_df_inboth_ep_prog, k_tup=keys_to_check[1]
-#     # )
-#     # if any(only_in_ep) or any(only_in_as):
-#     #   vis, ew_df = add_client_issues(only_in_ep, only_in_as, mkey)
-#     #   validation_issues.extend(vis)
-#     #   if utdf.has_data(ew_df):    
-#     #      slk_program_ewdf =  pd.concat([slk_program_ewdf, ew_df] , ignore_index=True)
-
-#     #TODO: for the in_both , do the time-boundaries check
-#     # as_df_inboth_prg, asmt_key =  utdf.merge_keys( as_df_inboth_prg, [fl_clntid, dk.per_client_asmt_id.value])
-#     # merged_df, unique_key = merge_datasets(ep_df_inboth_prg, as_df_inboth_prg
-#     #                                        ,
-#     #                                        common_cols=[fl_clntid,"Program"]
-#     #                                        , keys_merge=[dk.episode_id.value, asmt_key]) #IDMK
-    
-#     as_df_inboth, asmt_key =  utdf.merge_keys( as_df_inboth_ep_prog, [fl_clntid, dk.per_client_asmt_id.value])
-#     merged_df, unique_key = merge_datasets(ep_df_inboth, as_df_inboth
-#                                            ,
-#                                            common_cols=[fl_clntid]
-#                                            , keys_merge=[dk.episode_id.value, asmt_key]) #IDMK
-
-#     date_validation_issues, good_df, dates_ewdf = perform_date_matches(merged_df
-#                                                                        , unique_key
-#                                                                        , slack_ndays=slack_ndays)
-#     if utdf.has_data(dates_ewdf):
-#         validation_issues.extend(date_validation_issues)
-#         # full_ew_df = pd.concat([full_ew_df, dates_ew_df], ignore_index=True)
-#     # dates_ewdf[dates_ewdf.PMSEpisodeID_SLK_RowKey == date_validation_issues[0].key]
-#     return validation_issues, good_df, dates_ewdf, slk_program_ewdf
-
-#     # TODO: collect all errors and warnings
-#     # return errors, warnings, and good dataset
-
-
-# # # from test_data import episode_data, assessment_data
-# def main():
-#     # episode_df = pd.DataFrame(episode_data)
-#     # assessment_df = pd.DataFrame(assessment_data)
-#     episode_df = pd.read_csv('data/in/TEST_NSWMDS.csv')
-#     assessment_df = pd.read_csv('data/in/TEST_ATOM.csv')
-#     validation_issues, good_df, ew_df = filter_good_bad(episode_df, assessment_df)
-#     ew_df.to_csv('data/out/ew_df.csv')
-   
-
-
-# if __name__ == "__main__":
-#     main()

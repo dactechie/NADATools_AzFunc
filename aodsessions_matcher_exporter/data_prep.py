@@ -1,4 +1,4 @@
-from datetime import date
+
 import logging
 # from typing import Optional
 import pandas as pd
@@ -16,17 +16,7 @@ from importers.aod import expand_drug_info
 
 # logger = mylogger.get(__name__)
 
-def active_in_period(df:pd.DataFrame
-                     , startfield:str, endfield:str
-                     , start_date:date, end_date:date
-                    #  , clientid_field:Optional[str]=None
-                     ) -> pd.DataFrame:
-    in_period_df = df[(start_date <= df[endfield]) & (df[startfield] <= end_date)]
-    # unique_clients = []
-    # if clientid_field:
-    #     unique_clients = in_period_df[clientid_field].unique().tolist()
-    
-    return in_period_df#, unique_clients
+
 
 # def get_clients_for_eps_active_in_period(episode_df:pd.DataFrame,
 #                                              start_date:date, end_date:date) \
