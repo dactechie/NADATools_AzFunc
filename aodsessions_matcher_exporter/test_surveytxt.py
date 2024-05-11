@@ -5,8 +5,9 @@ import pandas as pd
 # from utils.io import write_parquet
 # from azutil.helper import get_fresh_data_only
 
-from utils.environment import MyEnvironmentConfig, ConfigKeys
-from matching.main import get_data_for_matching, perform_date_matches, get_merged_for_matching#, add_client_issues, filter_asmt_by_ep_programs
+from utils.environment import ConfigManager, ConfigKeys
+from matching.main import get_data_for_matching, \
+  perform_date_matches, get_merged_for_matching, filter_asmt_by_ep_programs
 
 from matching.errors import process_errors_warnings
 from mytypes import DataKeys as dk
@@ -20,15 +21,15 @@ from importers import episodes as imptr_episodes
 from importers import assessments as imptr_atoms
 
 import utils.df_ops_base as utdf
-from mytypes import DataKeys as dk, \
-    IssueType, IssueLevel
+from mytypes import DataKeys as dk
 
 
 def do_matches_slkprog(a_ineprogs:pd.DataFrame, e_df:pd.DataFrame, slack_for_matching:int) \
            -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     mkeys = ['SLK', 'Program']
     merged_df, merge_key, match_key, slk_prog_onlyinass, slk_prog_onlyin_ep = \
-        get_merged_for_matching(e_df, a_ineprogs, mergekeys_to_check=mkeys, match_keys=[dk.episode_id.value, dk.assessment_id.value]
+        get_merged_for_matching(e_df, a_ineprogs, mergekeys_to_check=mkeys
+                                , match_keys=[dk.episode_id.value, dk.assessment_id.value]
                                 )
     good_df, dates_ewdf = perform_date_matches(
         merged_df, match_key, slack_ndays=slack_for_matching)
@@ -69,6 +70,7 @@ def do_cleanup(slk_prog_matched:pd.DataFrame, good_df2:pd.DataFrame):
     # good_df2[~good_df2.Ep_AsDate.isin(good_df2_v2.Ep_AsDate)]  # AZKND150719831 (19/6/2023)  RIGAM080820061 (26/9/2023)
     good_df2_v2 = utdf.filter_out_common(good_df2, slk_prog_matched, key='Ep_AsDate')
     # good_df2_v2 =  good_df2[~good_df2.Ep_AsDate.isin(good_df.Ep_AsDate)]
+    print("do_cleanup - removing these rows from good_df2: \n", good_df2[~good_df2.Ep_AsDate.isin(good_df2_v2.Ep_AsDate)])
     good_df2_v2 = utdf.drop_fields(good_df2_v2, ['Ep_AsDate'])
     # for conflicts in Program , stamp the program of the episode
     good_df2_v2['Program'] = good_df2_v2['Program_y']
@@ -77,9 +79,10 @@ def do_cleanup(slk_prog_matched:pd.DataFrame, good_df2:pd.DataFrame):
 
 
 def main2():
-    MyEnvironmentConfig.setup('dev')
-    cfg = MyEnvironmentConfig().config
+    ConfigManager.setup('dev')
+    cfg = ConfigManager().config
     slack_for_matching = int(cfg.get(ConfigKeys.MATCHING_NDAYS_SLACK, 7))
+    refresh_assessments = False #cfg.get( ConfigKeys.REFRESH_ATOM_DATA, True )
     reporting_start = date(2024, 1, 1)
     reporting_end = date(2024, 3, 31)
     # source_folder = 'data/in/'
@@ -91,28 +94,26 @@ def main2():
 
     # # FIX ME: multiple atoms on the same day EACAR171119722 16/1/2024
 
-
-
-    a_df, e_df = get_data_for_matching( imptr_episodes \
+    a_df, e_df, inperiod_atomslk_notin_ep, inperiod_epslk_notin_atom = \
+        get_data_for_matching( imptr_episodes \
                                        , imptr_atoms \
                                        , eps_st, eps_end \
                                        , reporting_start, reporting_end \
                                        , assessment_start=asmt_st, assessment_end=asmt_end \
                                        , slack_for_matching=slack_for_matching \
-                                       , refresh=cfg.get( ConfigKeys.REFRESH_ATOM_DATA, True \
-                                                        )
+                                       , refresh=refresh_assessments
                                       )
     if not utdf.has_data(a_df) or not utdf.has_data(e_df):
         print("No data to match. Ending")
         return None
+    e_df.to_csv('data/out/active_episodes.csv')
 
     # SLK_RowKey
     a_df, _ = utdf.merge_keys(
         a_df, [dk.client_id.value, dk.per_client_asmt_id.value])
 
-    # WARNING  WHY ARE THERE NO EPISODES ni 2024 for bega ?
-    a_ineprogs = a_df
-    # a_ineprogs , a_notin_eprogs = filter_asmt_by_ep_programs (e_df, a_df)
+    # a_ineprogs = a_df
+    a_ineprogs , a_notin_eprogs = filter_asmt_by_ep_programs (e_df, a_df)
     # print(f"Assessments not in any of the programs of the episode {len(a_notin_eprogs)}")
 
 
@@ -145,7 +146,9 @@ def main2():
         'dates_ewdf2': dates_ewdf2
     }
 
-    process_errors_warnings(final_good, ew, merge_key2)
+    process_errors_warnings(final_good, ew, merge_key2
+                            , period_start=reporting_start
+                            , period_end=reporting_end)
   
 
     df_reindexed = final_good.reset_index(drop=True)

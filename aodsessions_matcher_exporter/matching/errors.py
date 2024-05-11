@@ -1,19 +1,21 @@
+from datetime import date
 import pandas as pd
 import utils.df_ops_base as utdf
 from mytypes import IssueType, IssueLevel
+from mytypes import DataKeys as dk
 
 
+def process_errors_warnings(final_good,  ew:dict, merge_key2
+                            ,period_start:date, period_end:date):
 
-def process_errors_warnings(final_good,  ew:dict, merge_key2):
 
-
-    onlyin_amst_error, onlyin_amst_warn = key_matching_errors(
+    onlyin_amst_error, onlyin_amst_warn = key_matching_errwarn_names(
         merge_key2
-        , ew['slk_prog_onlyinass'], IssueType.ONLY_IN_ASSESSMENT  # warni
+        , ew['slk_prog_onlyinass'], IssueType.SLKPROG_ONLY_IN_ASSESSMENT  # warni
         , ew['slk_onlyinass'], IssueType.CLIENT_ONLYIN_ASMT)  # error
 
-    onlyin_ep_error, onlyin_ep_warn = key_matching_errors(
-        merge_key2, ew['slk_prog_onlyin_ep'], IssueType.ONLY_IN_EPISODE
+    onlyin_ep_error, onlyin_ep_warn = key_matching_errwarn_names(
+        merge_key2, ew['slk_prog_onlyin_ep'], IssueType.SLKPROG_ONLY_IN_EPISODE
         , ew['slk_onlyin_ep'], IssueType.CLIENT_ONLYIN_EPISODE)
 
     # one Assessment matching to multiple episodes
@@ -28,11 +30,16 @@ def process_errors_warnings(final_good,  ew:dict, merge_key2):
     
 
     dates_ewdf.loc[dates_ewdf.SLK_RowKey.isin(
-        final_good.SLK_RowKey), 'issue_level'] = IssueLevel.WARNING.value
+        final_good.SLK_RowKey), 'issue_level'] = IssueLevel.WARNING.name
     final_dates_ew = pd.concat(
         [dates_ewdf, dates_ewdf2]).reset_index(drop=True)
     
-    
+    # date mismatch errors that are outside the reporting period dnt need to be reported.
+    a_dt = dk.assessment_date.value
+    final_dates_ew = utdf.in_period(final_dates_ew
+                      ,a_dt,a_dt
+                      ,period_start, period_end)
+
     # write_validation_results(good_df, dates_ewdf, slk_program_keys_ewdf)
     write_validation_results(final_good, final_dates_ew, onlyin_amst_error,
                              onlyin_ep_error, onlyin_amst_warn, onlyin_ep_warn)
@@ -67,7 +74,25 @@ def process_errors_warnings(final_good,  ew:dict, merge_key2):
 """
 
 
-def key_matching_errors(merge_key: str, slk_prog_onlyin: pd.DataFrame, it1: IssueType,
+# def key_matching_errors(merge_key: str, slk_prog_onlyin: pd.DataFrame, it1: IssueType,
+#                         slk_onlyin: pd.DataFrame,  it2: IssueType):
+#     # slk_prog_onlyin (SLK+Program) doesn't need to have anytihng that is also in slk_onlyin (SLK)
+#     # redundant
+#     slk_prog_onlyin1 = utdf.filter_out_common(
+#         slk_prog_onlyin, slk_onlyin, key=merge_key)
+#     # mask_common = slk_prog_onlyin[matchkey2].isin(slk_onlyin[matchkey2])
+#     slk_prog_warn = slk_prog_onlyin1.assign(
+#         issue_type=it1.value,
+#         issue_level=IssueLevel.WARNING.value)
+
+#     slk_onlyin_error = slk_onlyin.assign(issue_type=it2.value,
+#                                          issue_level=IssueLevel.ERROR.value)
+#     # only_in_errors = pd.concat([slk_prog_new, slk_onlyin_new])
+
+#     return slk_onlyin_error, slk_prog_warn
+
+
+def key_matching_errwarn_names(merge_key: str, slk_prog_onlyin: pd.DataFrame, it1: IssueType,
                         slk_onlyin: pd.DataFrame,  it2: IssueType):
     # slk_prog_onlyin (SLK+Program) doesn't need to have anytihng that is also in slk_onlyin (SLK)
     # redundant
@@ -75,15 +100,14 @@ def key_matching_errors(merge_key: str, slk_prog_onlyin: pd.DataFrame, it1: Issu
         slk_prog_onlyin, slk_onlyin, key=merge_key)
     # mask_common = slk_prog_onlyin[matchkey2].isin(slk_onlyin[matchkey2])
     slk_prog_warn = slk_prog_onlyin1.assign(
-        issue_type=it1.value,
-        issue_level=IssueLevel.WARNING.value)
+        issue_type=it1.name,
+        issue_level=IssueLevel.WARNING.name)
 
-    slk_onlyin_error = slk_onlyin.assign(issue_type=it2.value,
-                                         issue_level=IssueLevel.ERROR.value)
+    slk_onlyin_error = slk_onlyin.assign(issue_type=it2.name,
+                                         issue_level=IssueLevel.ERROR.name)
     # only_in_errors = pd.concat([slk_prog_new, slk_onlyin_new])
 
     return slk_onlyin_error, slk_prog_warn
-
 
 
 

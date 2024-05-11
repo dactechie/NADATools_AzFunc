@@ -73,7 +73,8 @@ def import_data(asmt_st:str, asmt_end:str
                           ,start_dt=asmt_st
                           ,end_dt=asmt_end
                             , cachefile=f"{processed_filepath}.parquet"
-                          , filters=filters)  
+                          , filters=filters
+                          , refresh=refresh)  
         
   return processed_df
   

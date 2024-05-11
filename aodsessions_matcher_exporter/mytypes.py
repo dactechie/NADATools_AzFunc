@@ -41,12 +41,14 @@ class IssueLevel(Enum):
 
 class IssueType(Enum):
   DATE_MISMATCH = auto()        #1
-  ONLY_IN_ASSESSMENT = auto()
+  SLKPROG_ONLY_IN_ASSESSMENT = auto()
   CLIENT_ONLYIN_ASMT = auto()   #3
-  ONLY_IN_EPISODE = auto()
+  SLKPROG_ONLY_IN_EPISODE = auto()
   CLIENT_ONLYIN_EPISODE = auto()#5
   ASMT_MATCHED_MULTI = auto() 
   NO_ASMT_IN_EPISODE = auto()   #7
+  INPERIOD_ASMTSLK_NOTIN_EP = auto()
+  # inperiod_atomslk_notin_ep
 
 
 @dataclass()
@@ -59,13 +61,13 @@ class ValidationIssue(Exception):
   def make_copy(self):
     return ValidationIssue(self.msg, self.issue_type,self.issue_level, self.key)
   
-  def to_dict(self):
-      return {
-          "msg": self.msg,
-          "issue_type": self.issue_type.name,
-          "issue_level": self.issue_level.name,
-          "key": self.key
-      }
+  # def to_dict(self):
+  #     return {
+  #         "msg": self.msg,
+  #         "issue_type": self.issue_type.name,
+  #         "issue_level": self.issue_level.name,
+  #         "key": self.key
+  #     }
 
 @dataclass(kw_only=True)
 class ValidationError(ValidationIssue):

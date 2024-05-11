@@ -1,13 +1,9 @@
 
 import os
-# import csv
 from datetime import datetime
 import logging
-# from typing import Optional
 import pandas as pd
-# import mylogging
 from utils.dtypes import convert_to_datetime
-
 import utils.df_ops_base as utdf
 from azutil.helper import get_results
 # from filters import get_outfilename_for_filters
@@ -62,22 +58,6 @@ def add_filter_columns(df1, filters:dict):
     df[filter_name] = filter_values_str
 
   return df
-
-
-def write_results_to_files(all_results, results_filename):# filters:dict = {}):
-  
-  # filt_fname = get_outfilename_for_filters(filters)
-
-  for results in all_results:
-    # title_for_file = results['title'].replace(" ", "_")
-    data = results['data']
-    data.insert(0,'ChartingDomain', results['title'])
-    
-    # data = add_filter_columns(data, filters)
-
-    # results_filepath = f"{results_folder}{fname}_{title_for_file}.csv"
-    # results_filepath = f"{results_folder}.csv"
-    write_df_to_csv(data, results_filename)# results_filepath, filters)
     
 
 def read_parquet(file_path:str) -> pd.DataFrame:
@@ -184,21 +164,18 @@ def get_data(table:str, start_date:int, end_date:int
   # get from ATOM Azure DB and save to disk
   #
   result_df = pd.DataFrame()
+  was_refreshed = False
   if cache and os.path.exists(f"{download_filepath}"):
       # if os.path.exists(f"{download_filepath}"):
       logging.info(f"Using cached data from {download_filepath}")
       result_df = read_parquet(f"{download_filepath}")
 
       if refresh:
-        
         result_df, was_refreshed = handle_refresh(result_df
-                        , table
-                        , start_date
-                        , end_date
-                         , filters )
-        # if was_refreshed:          
-        #   # override cache
-        #   result_df.to_parquet(f"{download_filepath}")
+                                  , table
+                                  , start_date
+                                  , end_date
+                                  , filters )
       return result_df, was_refreshed
 
   else:
@@ -227,3 +204,19 @@ def get_data(table:str, start_date:int, end_date:int
     
 #     merged_df = refresh_dataset(df1, df2)
 #     print(merged_df)
+
+
+# def write_results_to_files(all_results, results_filename):# filters:dict = {}):
+  
+#   # filt_fname = get_outfilename_for_filters(filters)
+
+#   for results in all_results:
+#     # title_for_file = results['title'].replace(" ", "_")
+#     data = results['data']
+#     data.insert(0,'ChartingDomain', results['title'])
+    
+#     # data = add_filter_columns(data, filters)
+
+#     # results_filepath = f"{results_folder}{fname}_{title_for_file}.csv"
+#     # results_filepath = f"{results_folder}.csv"
+#     write_df_to_csv(data, results_filename)# results_filepath, filters)

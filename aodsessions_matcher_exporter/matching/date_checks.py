@@ -67,8 +67,8 @@ def assessment_date_validator(gaps_df, mit_dict:ValidationMaskIssueTuple) ->\
      return gaps_df, pd.DataFrame()
 
   vi:ValidationIssue = mit_dict.validation_issue
-  ew_df = ew_df.assign(issue_type=vi.issue_type.value
-                       , issue_level=vi.issue_level.value
+  ew_df = ew_df.assign(issue_type=vi.issue_type.name
+                       , issue_level=vi.issue_level.name
                       )
   # ew_df['issue_msg']  = validation_issue.msg
 

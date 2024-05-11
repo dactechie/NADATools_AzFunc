@@ -42,6 +42,18 @@ def get_dupes_by_key(df: pd.DataFrame, key: str):
     return df[df[key].isin(duplicates)]
 
 
+from datetime import date
+def in_period(df:pd.DataFrame
+                     , startfield:str, endfield:str
+                     , start_date:date, end_date:date
+                    #  , clientid_field:Optional[str]=None
+                     ) -> pd.DataFrame:
+
+    in_period_df = df[(start_date <= df[endfield]) & (df[startfield] <= end_date)]
+    
+    return in_period_df#, unique_clients
+
+
 def get_last_day_n_months_ago(n_months_ago) -> datetime.date:
     current_date = datetime.date.today()
     first_day_of_current_month = datetime.date(

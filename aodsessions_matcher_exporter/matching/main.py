@@ -1,7 +1,7 @@
 import logging
-from datetime import date
+from datetime import date, timedelta
 import pandas as pd
-from mytypes import DataKeys as dk, Purpose
+from mytypes import DataKeys as dk, IssueLevel, IssueType, Purpose, ValidationIssue
 # from utils.environment import MyEnvironmentConfig, ConfigKeys
 import utils.df_ops_base as utdf
 from utils import base as utbase
@@ -9,16 +9,17 @@ import matching.date_checks as dtchk
 from matching import increasing_slack as mis
 
 
+
 def get_data_for_matching(ep_imptr, asmt_imptr, eps_st, eps_end
                           , reporting_start, reporting_end
                           , assessment_start, assessment_end
                           , slack_for_matching:int, refresh:bool=True) \
-                            -> tuple[pd.DataFrame, pd.DataFrame]:
+                            -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
 
   episode_df = ep_imptr.import_data(eps_st, eps_end)
   if not utdf.has_data(episode_df):
       logging.error("No episodes")
-      return pd.DataFrame(), pd.DataFrame()
+      return pd.DataFrame(), pd.DataFrame(),pd.DataFrame(), pd.DataFrame()
   print("Episodes shape ", episode_df.shape)
 
   atom_df = asmt_imptr.import_data(assessment_start
@@ -30,28 +31,122 @@ def get_data_for_matching(ep_imptr, asmt_imptr, eps_st, eps_end
   print("ATOMs shape ", atom_df.shape)
   # FIX ME: multiple atoms on the same day EACAR171119722 16/1/2024
 
-  a_df, e_df, inperiodatom_slknot_inep,\
-      inperiodep_slk_not_inatom = get_asmts_4_active_eps(
-              episode_df, atom_df, start_date=reporting_start
-            , end_date=reporting_end, slack_ndays=slack_for_matching)
-  e_df.to_csv('data/out/active_episodes.csv')
+   #, inperiod_atomslk_notin_ep, inperiod_epslk_notin_atom 
+  a_df, e_df,inperiod_atomslk_notin_ep, inperiod_epslk_notin_atom  = get_asmts_4_active_eps2(
+                episode_df, atom_df, start_date=reporting_start
+              , end_date=reporting_end, slack_ndays=slack_for_matching)
+  
   # a_df = filter_atoms_for_matching (min_date, max_date, atom_df)
+  # vis = [] 
+  # for asmt in inperiod_atomslk_notin_ep:
+  #    v = ValidationIssue("In Period ATOM SLK not in Episode",
+  #                        issue_type=IssueType.INPERIOD_ASMTSLK_NOTIN_EP,
+  #                        issue_level=IssueLevel.WARNING)
+  #   # ValidationIssue
+
   print("filtered ATOMs shape ", a_df.shape)
   print("filtered Episodes shape ", e_df.shape)
-  return a_df, e_df
+  return a_df, e_df, inperiod_atomslk_notin_ep, inperiod_epslk_notin_atom
 
 
-def active_in_period(df:pd.DataFrame
-                     , startfield:str, endfield:str
-                     , start_date:date, end_date:date
-                    #  , clientid_field:Optional[str]=None
-                     ) -> pd.DataFrame:
 
-    in_period_df = df[(start_date <= df[endfield]) & (df[startfield] <= end_date)]
+
+#remove unrelated SLKs bfore the reporting period
+
+def get_asmts4clients_w_asmts_inperiod(atoms_df: pd.DataFrame,
+                           minpos_asmt_date: date,
+                           start_date: date,
+                           end_date: date):
+    """
+      Remove any assessments for clients(SLKs) who are found ONLY before the reporting period.
+      The resulting df may have assessment before the reporting period, as long as they have 
+      at least one assessment in reporting period
+    """
+    f_asmt_dt = dk.assessment_date.value
+    slk = dk.client_id
+
+    atoms_active_inperiod =\
+      utdf.in_period(atoms_df, f_asmt_dt, f_asmt_dt,
+                         start_date, end_date) 
+    asmts_beforeperiod = utdf.in_period(atoms_active_inperiod
+                                                          , f_asmt_dt, f_asmt_dt
+                                                          , minpos_asmt_date
+                                                          , start_date - timedelta(days=1))
+    slks_beforeperiod = set(asmts_beforeperiod[[slk]]) #.unique()
+    atoms_active_inperiod = set(atoms_active_inperiod[[slk]])
+
+    slks_beforeperiod_notalso_inperiod = slks_beforeperiod - atoms_active_inperiod
+    mask_slks_onlyb4_period = atoms_df[slk].isin(slks_beforeperiod_notalso_inperiod)
     
-    return in_period_df#, unique_clients
+    slks = set(atoms_df[mask_slks_onlyb4_period][slk])
+
+    logging.info(f"SLKs only before period : {slks} ")
+    return atoms_df[~mask_slks_onlyb4_period]
+
 
 def get_asmts_4_active_eps(episode_df: pd.DataFrame,
+                           atoms_df: pd.DataFrame,
+                           start_date: date,
+                           end_date: date,
+                           slack_ndays: int) -> tuple[pd.DataFrame, pd.DataFrame]:
+    #, pd.DataFrame, pd.DataFrame]:
+    """
+      Q: Why do we need to extract ATOMs before the reporting period?
+      A: To ensure the stage-number is accurate. 
+
+      1. Get all episodes that were active at any point during the period.
+      2. To get the list of ATOMs active in the period, give the AssessmentDate range of:
+          a. the start date of the earliest episode in step 1, minus n days for some slack.
+          b. the end date of the reporting period.
+
+        Important: 
+        1. There may be ATOM assessments for clients who are NOT in the list from step 1
+        we return them anyway as the 'atoms_active_inperiod' and the validation steps later 
+        would flag them.
+
+        2. There may be no ATOM assessments in the reporting period, even though the matched episode
+        had an active period (> say 28 days) in the reporting period.
+    """
+
+    f_ep_st, f_ep_ed = dk.episode_start_date.value, dk.episode_end_date.value
+    # f_asmt_dt = dk.assessment_date.value
+    # slk = dk.client_id
+
+    eps_active_inperiod = utdf.in_period(episode_df, f_ep_st
+                                           , f_ep_ed
+                                           , start_date, end_date)
+    #NOTE: Do this one year later , it is irrelevant here
+    mask_within_ayear = (pd.to_datetime(eps_active_inperiod['EndDate']) -
+                          pd.to_datetime(
+                           eps_active_inperiod['CommencementDate'])).dt.days <= 366
+    eps_active_inperiod = eps_active_inperiod.assign(
+                            within_one_year=mask_within_ayear)
+    
+    minpos_asmt_date = min(
+        eps_active_inperiod[f_ep_st]) - pd.Timedelta(days=slack_ndays)
+
+    atoms_active_inperiod =\
+        get_asmts4clients_w_asmts_inperiod(atoms_df, minpos_asmt_date,
+                         start_date, end_date)
+    
+    common_slk_atom_mask = atoms_active_inperiod.SLK.isin(
+        eps_active_inperiod.SLK)
+    atoms_slk_not_in_ep = atoms_active_inperiod[~common_slk_atom_mask]
+    #inperiodatom_slknot_inep = active_in_period(
+    #    atoms_slk_not_in_ep, f_asmt_dt, f_asmt_dt, start_date, end_date)
+    
+
+    commonslk_ep_mask = eps_active_inperiod.SLK.isin(atoms_active_inperiod.SLK)
+    ep_slk_not_in_atom = eps_active_inperiod[~commonslk_ep_mask]
+    #inperiodep_slk_not_inatom = active_in_period(
+    #    ep_slk_not_in_atom, f_ep_st, f_ep_ed, start_date, end_date)
+
+    return atoms_active_inperiod[common_slk_atom_mask], eps_active_inperiod[commonslk_ep_mask]
+      #, \
+      #  inperiodatom_slknot_inep, inperiodep_slk_not_inatom
+
+
+def get_asmts_4_active_eps2(episode_df: pd.DataFrame,
                            atoms_df: pd.DataFrame,
                            start_date: date,
                            end_date: date,
@@ -66,7 +161,7 @@ def get_asmts_4_active_eps(episode_df: pd.DataFrame,
           b. the end date of the reporting period.
 
         Important: 
-        1. There may be ATOM assessments fro clients who are NOT in the list from step 1
+        1. There may be ATOM assessments for clients who are NOT in the list from step 1
         we return them anyway as the 'atoms_active_inperiod' and the validation steps later 
         would flag them.
 
@@ -78,7 +173,7 @@ def get_asmts_4_active_eps(episode_df: pd.DataFrame,
     asmtdt_field = dk.assessment_date.value
 
     eps_active_inperiod =\
-        active_in_period(episode_df, ep_stfield, edfield,
+        utdf.in_period(episode_df, ep_stfield, edfield,
                          start_date, end_date)
     # active_clients_eps, eps_active_inperiod =\
     #     get_clients_for_eps_active_in_period(episode_df, start_date, end_date)
@@ -101,19 +196,21 @@ def get_asmts_4_active_eps(episode_df: pd.DataFrame,
         eps_active_inperiod[ep_stfield]) - pd.Timedelta(days=slack_ndays)
 
     atoms_active_inperiod =\
-        active_in_period(atoms_df, asmtdt_field, asmtdt_field,
+        utdf.in_period(atoms_df, asmtdt_field, asmtdt_field,
                          min_asmt_date, end_date)
 
     common_slk_atom_mask = atoms_active_inperiod.SLK.isin(
         eps_active_inperiod.SLK)
     atoms_slk_not_in_ep = atoms_active_inperiod[~common_slk_atom_mask]
-    inperiodatom_slknot_inep = active_in_period(
+    inperiodatom_slknot_inep = utdf.in_period(
         atoms_slk_not_in_ep, asmtdt_field, asmtdt_field, start_date, end_date)
+    print("Inperiod atoms , SLK not in episde", set(inperiodatom_slknot_inep.loc[:,'SLK']))
 
     commonslk_ep_mask = eps_active_inperiod.SLK.isin(atoms_active_inperiod.SLK)
     ep_slk_not_in_atom = eps_active_inperiod[~commonslk_ep_mask]
-    inperiodep_slk_not_inatom = active_in_period(
-        ep_slk_not_in_atom, ep_stfield, edfield, start_date, end_date)
+    inperiodep_slk_not_inatom = utdf.in_period(
+       ep_slk_not_in_atom, ep_stfield, edfield, start_date, end_date)
+    print("Inperiod episode , SLK not in ATOM", set(inperiodep_slk_not_inatom.loc[:,'SLK']))
 
     return atoms_active_inperiod[common_slk_atom_mask], eps_active_inperiod[commonslk_ep_mask], \
         inperiodatom_slknot_inep, inperiodep_slk_not_inatom
@@ -196,7 +293,15 @@ def perform_date_matches(merged_df: pd.DataFrame, match_key:str, slack_ndays:int
 
     # return validation_issues, good_df, ew_df
     return  result_matched_df, ew_df
-    
+
+
+def filter_asmt_by_ep_programs(
+        ep_df: pd.DataFrame, a_df:pd.DataFrame)\
+            -> tuple[pd.DataFrame, pd.DataFrame]:
+  ep_programs = ep_df['Program'].unique()
+  aprog_in_any_eprog =a_df['Program'].isin(ep_programs)
+  a_df_epprog = a_df[aprog_in_any_eprog]
+  return a_df_epprog, a_df[~aprog_in_any_eprog]
 
 
 def get_merged_for_matching(episode_df: pd.DataFrame
