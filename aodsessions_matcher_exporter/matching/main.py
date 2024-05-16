@@ -1,7 +1,7 @@
 import logging
 from datetime import date, timedelta
 import pandas as pd
-from mytypes import DataKeys as dk, IssueLevel, IssueType, Purpose, ValidationIssue
+from mytypes import DataKeys as dk, IssueLevel, IssueType, Purpose #, ValidationIssue
 # from utils.environment import MyEnvironmentConfig, ConfigKeys
 import utils.df_ops_base as utdf
 from utils import base as utbase
@@ -180,6 +180,7 @@ def get_asmts_4_active_eps2(episode_df: pd.DataFrame,
 
     # all_eps_4clients_w_active_eps_inperiod = episode_df[episode_df.SLK.isin(active_clients_eps)]
 
+    # TODO : Do this one year later , it is irrelevant here
     # long running episodes should be eliminated as well.
     mask_within_ayear = (pd.to_datetime(eps_active_inperiod['EndDate']) - pd.to_datetime(
         eps_active_inperiod['CommencementDate'])).dt.days <= 366
@@ -199,20 +200,20 @@ def get_asmts_4_active_eps2(episode_df: pd.DataFrame,
         utdf.in_period(atoms_df, asmtdt_field, asmtdt_field,
                          min_asmt_date, end_date)
 
-    common_slk_atom_mask = atoms_active_inperiod.SLK.isin(
-        eps_active_inperiod.SLK)
-    atoms_slk_not_in_ep = atoms_active_inperiod[~common_slk_atom_mask]
+    mask_comnslk_asminprd_epinprd = atoms_active_inperiod.SLK.isin(
+        eps_active_inperiod.SLK.unique())
+    atoms_slk_not_in_ep = atoms_active_inperiod[~mask_comnslk_asminprd_epinprd]
     inperiodatom_slknot_inep = utdf.in_period(
         atoms_slk_not_in_ep, asmtdt_field, asmtdt_field, start_date, end_date)
     print("Inperiod atoms , SLK not in episde", set(inperiodatom_slknot_inep.loc[:,'SLK']))
 
-    commonslk_ep_mask = eps_active_inperiod.SLK.isin(atoms_active_inperiod.SLK)
+    commonslk_ep_mask = eps_active_inperiod.SLK.isin(atoms_active_inperiod.SLK.unique())
     ep_slk_not_in_atom = eps_active_inperiod[~commonslk_ep_mask]
     inperiodep_slk_not_inatom = utdf.in_period(
        ep_slk_not_in_atom, ep_stfield, edfield, start_date, end_date)
     print("Inperiod episode , SLK not in ATOM", set(inperiodep_slk_not_inatom.loc[:,'SLK']))
 
-    return atoms_active_inperiod[common_slk_atom_mask], eps_active_inperiod[commonslk_ep_mask], \
+    return atoms_active_inperiod[mask_comnslk_asminprd_epinprd], eps_active_inperiod[commonslk_ep_mask], \
         inperiodatom_slknot_inep, inperiodep_slk_not_inatom
 
 
@@ -285,14 +286,19 @@ def perform_date_matches(merged_df: pd.DataFrame, match_key:str, slack_ndays:int
     ew_df = dtchk.get_assessment_boundary_issues(\
        dt_unmat_asmts, mask_isuetype_map, match_key)
     
-    # unmatched_eps_df = unmatched_eps_df.assign(issue_type=IssueType.NO_ASMT_IN_EPISODE.value
-    #                         , issue_level=IssueLevel.ERROR.value)
-    # duplicate_rows_dfs = duplicate_rows_dfs.assign(issue_type=IssueType.ASMT_MATCHED_MULTI.value
-    #                         , issue_level=IssueLevel.ERROR.value)
-    # final_dates_ewdf = pd.concat([ew_df, duplicate_rows_dfs],ignore_index=True)
+    if not utdf.has_data(duplicate_rows_dfs):
+       return result_matched_df, ew_df
+    # exclude from error reporting if it is in the results:
+    duplicate_rows_dfs = duplicate_rows_dfs[~duplicate_rows_dfs.PMSEpisodeID_SLK_RowKey
+                                            .isin(result_matched_df.PMSEpisodeID_SLK_RowKey)]
+    # in the errors, show ALL the episodes the assessment matches to
+    multi_match_errors = merged_df[merged_df.SLK_RowKey.isin(duplicate_rows_dfs.SLK_RowKey)]
+    multi_match_errors = multi_match_errors.assign(issue_type=IssueType.ASMT_MATCHED_MULTI.name
+                            , issue_level=IssueLevel.ERROR.name)
+    final_dates_ewdf = pd.concat([ew_df, multi_match_errors],ignore_index=True)
 
     # return validation_issues, good_df, ew_df
-    return  result_matched_df, ew_df
+    return  result_matched_df, final_dates_ewdf
 
 
 def filter_asmt_by_ep_programs(

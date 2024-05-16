@@ -3,18 +3,18 @@ import pandas as pd
 import utils.df_ops_base as utdf
 from mytypes import IssueType, IssueLevel
 from mytypes import DataKeys as dk
-
+from configs import audit as audit_cfg
 
 def process_errors_warnings(final_good,  ew:dict, merge_key2
                             ,period_start:date, period_end:date):
 
 
-    onlyin_amst_error, onlyin_amst_warn = key_matching_errwarn_names(
+    slkonlyin_amst_error, slkprogonlyin_amst_warn = key_matching_errwarn_names(
         merge_key2
         , ew['slk_prog_onlyinass'], IssueType.SLKPROG_ONLY_IN_ASSESSMENT  # warni
         , ew['slk_onlyinass'], IssueType.CLIENT_ONLYIN_ASMT)  # error
 
-    onlyin_ep_error, onlyin_ep_warn = key_matching_errwarn_names(
+    slkonlyin_ep_error, slkprogonlyin_ep_warn = key_matching_errwarn_names(
         merge_key2, ew['slk_prog_onlyin_ep'], IssueType.SLKPROG_ONLY_IN_EPISODE
         , ew['slk_onlyin_ep'], IssueType.CLIENT_ONLYIN_EPISODE)
 
@@ -40,9 +40,16 @@ def process_errors_warnings(final_good,  ew:dict, merge_key2
                       ,a_dt,a_dt
                       ,period_start, period_end)
 
+    # limit columns to write out
+    final_dates_ew = final_dates_ew[audit_cfg.COLUMNS_AUDIT_DATES]
+    slkonlyin_ep_error = slkonlyin_ep_error[audit_cfg.COLUMNS_AUDIT_EPKEY_CLIENT]
+    slkprogonlyin_ep_warn = slkprogonlyin_ep_warn[audit_cfg.COLUMNS_AUDIT_EPKEY_CLIENTPROG]
+    slkonlyin_amst_error = slkonlyin_amst_error[audit_cfg.COLUMNS_AUDIT_ASMTKEY]
+    slkprogonlyin_amst_warn = slkprogonlyin_amst_warn[audit_cfg.COLUMNS_AUDIT_ASMTKEY]
+
     # write_validation_results(good_df, dates_ewdf, slk_program_keys_ewdf)
-    write_validation_results(final_good, final_dates_ew, onlyin_amst_error,
-                             onlyin_ep_error, onlyin_amst_warn, onlyin_ep_warn)
+    write_validation_results(final_dates_ew, slkonlyin_amst_error,
+                             slkonlyin_ep_error, slkprogonlyin_amst_warn, slkprogonlyin_ep_warn)
 
 
     # TODO :Clients without a single ATOM in the period
@@ -111,21 +118,35 @@ def key_matching_errwarn_names(merge_key: str, slk_prog_onlyin: pd.DataFrame, it
 
 
 
-def write_validation_results(good_df: pd.DataFrame, dates_ewdf: pd.DataFrame
+def write_validation_results(dates_ewdf: pd.DataFrame
                              , asmt_key_errors: pd.DataFrame
                              , ep_key_errors: pd.DataFrame
-                             , asmt_key_warn: pd.DataFrame, ep_key_warn: pd.DataFrame):
-    ouput_folder = 'data/out/errors_warnings/'
+                             , asmt_key_warn: pd.DataFrame
+                             , ep_key_warn: pd.DataFrame):
+    output_folder = 'data/out/errors_warnings/'
 
-    dates_ewdf.drop('SurveyData', axis=1, inplace=True)
-    dates_ewdf.to_csv(f'{ouput_folder}dates_ewdf.csv')
+    if utdf.has_data(dates_ewdf):
+      #utdf.drop_fields(dates_ewdf
+      #                , fieldnames='SurveyData') \
+      dates_ewdf.to_csv(f'{output_folder}dates_ewdf.csv'
+                        , index=False)
+    
+    if utdf.has_data(asmt_key_errors):
+      # utdf.drop_fields(asmt_key_errors
+      #                 , fieldnames='SurveyData') \
+      asmt_key_errors.to_csv(f'{output_folder}asmt_key_errors.csv'
+                            , index=False)
 
-    asmt_key_errors.drop('SurveyData', axis=1, inplace=True)
-    asmt_key_errors.to_csv(f'{ouput_folder}asmt_key_errors.csv')
+    if utdf.has_data(ep_key_errors):
+      ep_key_errors.to_csv(f'{output_folder}ep_key_errors.csv'
+                           , index=False)
 
-    ep_key_errors.to_csv(f'{ouput_folder}ep_key_errors.csv')
+    # utdf.drop_fields(asmt_key_warn
+    #                  , fieldnames='SurveyData') \
+    if utdf.has_data(asmt_key_warn):
+      asmt_key_warn.to_csv(f'{output_folder}asmt_key_warn.csv'
+                           , index=False)
 
-    asmt_key_warn.drop('SurveyData', axis=1, inplace=True)
-    asmt_key_warn.to_csv(f'{ouput_folder}asmt_key_warn.csv')
-
-    ep_key_warn.to_csv(f'{ouput_folder}ep_key_warn.csv')
+    if utdf.has_data(ep_key_warn):
+      ep_key_warn.to_csv(f'{output_folder}ep_key_warn.csv'
+                         , index=False)

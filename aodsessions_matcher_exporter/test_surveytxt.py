@@ -59,23 +59,27 @@ def do_matches_slk(not_matched_asmts_slkprog:pd.DataFrame, e_df:pd.DataFrame, sl
     return good_df2, dates_ewdf2, slk_onlyinass, merge_key2
 
 
-def do_cleanup(slk_prog_matched:pd.DataFrame, good_df2:pd.DataFrame):
+def fix_incorrect_program(slkprog_datematched:pd.DataFrame, slk_datematched:pd.DataFrame):
     # program may be different for this client,asessment,  but highlight unlikely to be on the same day, so exclude :
     # (-8 - asmt date)
-    good_df2['Ep_AsDate'] = good_df2['SLK']+'_' + good_df2.PMSEpisodeID + \
-        '_' + good_df2.PMSEpisodeID_SLK_RowKey.str[-8:]
-    slk_prog_matched['Ep_AsDate'] = slk_prog_matched['SLK']+'_' + slk_prog_matched.PMSEpisodeID + \
-        '_' + slk_prog_matched.PMSEpisodeID_SLK_RowKey.str[-8:]
+    slk_datematched['Ep_AsDate'] = slk_datematched['SLK']+'_' + slk_datematched.PMSEpisodeID + \
+        '_' + slk_datematched.PMSEpisodeID_SLK_RowKey.str[-8:]
+    slkprog_datematched['Ep_AsDate'] = slkprog_datematched['SLK']+'_' + slkprog_datematched.PMSEpisodeID + \
+        '_' + slkprog_datematched.PMSEpisodeID_SLK_RowKey.str[-8:]
 
     # good_df2[~good_df2.Ep_AsDate.isin(good_df2_v2.Ep_AsDate)]  # AZKND150719831 (19/6/2023)  RIGAM080820061 (26/9/2023)
-    good_df2_v2 = utdf.filter_out_common(good_df2, slk_prog_matched, key='Ep_AsDate')
+    
+    # keep only what is in slk_datematched
+    slk_datematched_v2 = utdf.filter_out_common(slk_datematched, slkprog_datematched, key='Ep_AsDate')
+    
     # good_df2_v2 =  good_df2[~good_df2.Ep_AsDate.isin(good_df.Ep_AsDate)]
-    print("do_cleanup - removing these rows from good_df2: \n", good_df2[~good_df2.Ep_AsDate.isin(good_df2_v2.Ep_AsDate)])
-    good_df2_v2 = utdf.drop_fields(good_df2_v2, ['Ep_AsDate'])
+    print("fix_incorrect_program: moving rows from slk_datematched becauase they exist in slkprog_datematched: \n"
+          , slk_datematched[~slk_datematched.Ep_AsDate.isin(slk_datematched_v2.Ep_AsDate)])
+    slk_datematched_v2 = utdf.drop_fields(slk_datematched_v2, ['Ep_AsDate'])
     # for conflicts in Program , stamp the program of the episode
-    good_df2_v2['Program'] = good_df2_v2['Program_y']
+    slk_datematched_v2['Program'] = slk_datematched_v2['Program_y']
     # ESTBLISHmentID or Program_y has the right program (frm the matched episode)
-    return slk_prog_matched, good_df2_v2
+    return slkprog_datematched, slk_datematched_v2
 
 
 def main2():
@@ -105,7 +109,7 @@ def main2():
                                       )
     if not utdf.has_data(a_df) or not utdf.has_data(e_df):
         print("No data to match. Ending")
-        return None
+        return None    
     e_df.to_csv('data/out/active_episodes.csv')
 
     # SLK_RowKey
@@ -116,27 +120,36 @@ def main2():
     a_ineprogs , a_notin_eprogs = filter_asmt_by_ep_programs (e_df, a_df)
     # print(f"Assessments not in any of the programs of the episode {len(a_notin_eprogs)}")
 
-
-    good_df, dates_ewdf , slk_prog_onlyinass, slk_prog_onlyin_ep  = do_matches_slkprog(a_ineprogs 
+    # XXA this assumes Assessment's program is always Correct 
+    slkprog_datematched, dates_ewdf , slk_prog_onlyinass, slk_prog_onlyin_ep  = do_matches_slkprog(a_ineprogs 
                                                             , e_df
                                                             , slack_for_matching
                                                             )
-    a_key = dk.assessment_id.value
+    a_key = dk.assessment_id.value # SLK +RowKey
     # ATOMs that could not be date matched with episode, when merging on SLK+Program
-    not_matched_asmts = a_ineprogs[~a_ineprogs[a_key].isin(
-        good_df[a_key].unique())]
+    unmatched_asmt_by_slkprog = a_ineprogs[~a_ineprogs[a_key].isin(
+        slkprog_datematched[a_key].unique())]
 
-    good_df2, dates_ewdf2, slk_onlyinass, merge_key2  = do_matches_slk(not_matched_asmts 
+    slkonly_datematched, dates_ewdf2, slk_onlyinass, merge_key2  = do_matches_slk(unmatched_asmt_by_slkprog 
                                                             , e_df
                                                             , slack_for_matching
                                                             )
-
-    good_df, good_df2_v2 = do_cleanup(good_df, good_df2)
-    final_good = pd.concat([good_df, good_df2_v2])
+    # XXA if the assessment's program was not correct, it would have only matched by SLK i.e. in slkonly_datematched not in good_df
+    # try to change the matching key to SLK+EpisodeID+AssessmentDate (no program) and use the program of the episode
+    # then 'move' the assessment from slkonly_datematched to slkprog_datematched
+    slkprog_datematched, slkonly_datematched_v2 = fix_incorrect_program(slkprog_datematched, slkonly_datematched)
+    final_good = pd.concat([slkprog_datematched, slkonly_datematched_v2])
     
     # can't use the result above (_)as we are only using the un-merged assesemtns (slk_prog_onlyinass) as input
     # slk_onlyin_ep = e_df[e_df.SLK.isin(a_inepregs.SLK.unique())]
     slk_onlyin_ep = utdf.filter_out_common(e_df, a_ineprogs, key='SLK')
+
+    # TODO: explain why these are two different things (pre date-matching vs post date-matching errors)
+    print("concating pre-match missing SLK errors of lengths :")
+    print(f"\n\t only-in-ATOM: {len(inperiod_atomslk_notin_ep)}  ; only in Episode: {len(inperiod_epslk_notin_atom)} ")
+    slk_onlyinass = pd.concat([slk_onlyinass, inperiod_atomslk_notin_ep])
+    slk_onlyin_ep = pd.concat([slk_onlyin_ep, inperiod_epslk_notin_atom])
+
     ew = {
         'slk_onlyinass': slk_onlyinass,
         'slk_onlyin_ep': slk_onlyin_ep,

@@ -1,11 +1,10 @@
 import logging
 
 import pandas as pd
-from utils import io# get_data, read_parquet, write_parquet
+from utils import io
 from data_config import  ATOM_DB_filters 
 from utils.df_ops_base import has_data
-# from utils.dtypes import convert_to_datetime
-from utils.base import get_period_range
+
 from mytypes import Purpose
 
 
