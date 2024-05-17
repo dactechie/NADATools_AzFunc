@@ -18,6 +18,37 @@ def safe_convert_to_int_strs(df1: pd.DataFrame, float_columns):
     return df2
 
 
+def get_delta_by_key(df1: pd.DataFrame
+                     , df2: pd.DataFrame
+                     , key: str, common:bool=False) \
+                      -> tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Identify rows in the first DataFrame that do not have matching keys in the second DataFrame.
+    
+    Parameters:
+    df1 (pd.DataFrame): The first DataFrame to compare.
+    df2 (pd.DataFrame): The second DataFrame to compare against.
+    key (str): The column name to use as the key for comparison.
+    common (bool): If True, also return the rows in df1 with keys that are common to both DataFrames. Defaults to False.
+    
+    Returns:
+    tuple[pd.DataFrame, pd.DataFrame]: 
+        - The first DataFrame contains rows from df1 that do not have matching keys in df2.
+        - The second DataFrame (empty if common is False) contains rows from df1 with keys that are common to both DataFrames.
+    """    
+    df1_keys = set(df1[key])
+    df2_keys = set(df2[key])
+    common_keys = df1_keys.intersection(df2_keys)
+    
+    mask = df1[key].isin(common_keys)
+    not_in_df2 = df1[~mask]
+    
+    if common:
+        return not_in_df2, df1[mask]
+        
+    return not_in_df2, pd.DataFrame()
+
+
 def filter_out_common(df1: pd.DataFrame, df2: pd.DataFrame, key: str) -> pd.DataFrame:
     df1_keys = set(df1[key])
     df2_keys = set(df2[key])
@@ -129,6 +160,11 @@ def drop_fields(df: pd.DataFrame, fieldnames: list | str | tuple):
     return df2
 
 
+def drop_fields_by_regex(df, regex: str):
+    df2 = df.loc[:, ~df.columns.str.contains(regex, case=False)]
+    return df2
+
+
 def concat_drop_parent(df, df2, drop_parent_name: str) -> pd.DataFrame:
     return pd.concat([df.drop(drop_parent_name, axis=1), df2], axis=1)
 
@@ -137,11 +173,6 @@ def get_non_empty_list_items(df: pd.DataFrame, field_name: str) -> pd.DataFrame:
     # get only rows where the list is not empty
     df2 = df[df[field_name].apply(
         lambda x: isinstance(x, list) and len(x) > 0)]
-    return df2
-
-
-def drop_fields_by_regex(df, regex: str):
-    df2 = df.loc[:, ~df.columns.str.contains(regex, case=False)]
     return df2
 
 
@@ -213,7 +244,7 @@ def update(df1: pd.DataFrame, df2: pd.DataFrame, on: list[str]) -> pd.DataFrame:
     # return merged_df
 
 
-def merge_keys(df1: pd.DataFrame, merge_fields: list[str], separator: str = '_')\
+def merge_keys_new_field(df1: pd.DataFrame, merge_fields: list[str], separator: str = '_')\
         -> tuple[pd.DataFrame, str]:
     """
     Merges multiple columns from a DataFrame into a single column using '_'.

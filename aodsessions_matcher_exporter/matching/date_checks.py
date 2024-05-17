@@ -121,13 +121,13 @@ def get_assessment_boundary_issues(dt_unmtch_asmt:pd.DataFrame, mask_isuetypes:l
     return full_ew_df
 
 
-def asmt4clients_w_asmt_onlyoutof_period(
-      good_df:pd.DataFrame, start_date, end_date)-> pd.DataFrame:
-  in_period = good_df[(good_df.AssessmentDate >= start_date) & \
-                      ( good_df.AssessmentDate <= end_date )]
-  inperiod_set = set(in_period.SLK.unique())
-  good_c_set = set(good_df.SLK.unique())
+# def asmt4clients_w_asmt_onlyoutof_period(
+#       good_df:pd.DataFrame, start_date, end_date)-> pd.DataFrame:
+#   in_period = good_df[(good_df.AssessmentDate >= start_date) & \
+#                       ( good_df.AssessmentDate <= end_date )]
+#   inperiod_set = set(in_period.SLK.unique())
+#   good_c_set = set(good_df.SLK.unique())
   
-  clients_w_asmts_only_outperiod = \
-      good_df[good_df.SLK.isin(good_c_set - inperiod_set)]
-  return clients_w_asmts_only_outperiod
+#   clients_w_asmts_only_outperiod = \
+#       good_df[good_df.SLK.isin(good_c_set - inperiod_set)]
+#   return clients_w_asmts_only_outperiod

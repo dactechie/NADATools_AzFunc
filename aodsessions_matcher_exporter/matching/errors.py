@@ -1,12 +1,14 @@
 from datetime import date
 import pandas as pd
+from exporters.main import DataExporter
 import utils.df_ops_base as utdf
 from mytypes import IssueType, IssueLevel
 from mytypes import DataKeys as dk
 from configs import audit as audit_cfg
 
-def process_errors_warnings(final_good,  ew:dict, merge_key2
-                            ,period_start:date, period_end:date):
+def process_errors_warnings(ew:dict, warning_asmt_ids, merge_key2
+                            ,period_start:date, period_end:date
+                            , audit_exporter:DataExporter):
 
 
     slkonlyin_amst_error, slkprogonlyin_amst_warn = key_matching_errwarn_names(
@@ -28,9 +30,8 @@ def process_errors_warnings(final_good,  ew:dict, merge_key2
     dates_ewdf = ew['dates_ewdf']
     dates_ewdf2 = ew['dates_ewdf2']
     
-
-    dates_ewdf.loc[dates_ewdf.SLK_RowKey.isin(
-        final_good.SLK_RowKey), 'issue_level'] = IssueLevel.WARNING.name
+    dates_ewdf.loc[dates_ewdf.SLK_RowKey.isin(warning_asmt_ids) \
+                   , 'issue_level'] = IssueLevel.WARNING.name
     final_dates_ew = pd.concat(
         [dates_ewdf, dates_ewdf2]).reset_index(drop=True)
     
@@ -47,9 +48,16 @@ def process_errors_warnings(final_good,  ew:dict, merge_key2
     slkonlyin_amst_error = slkonlyin_amst_error[audit_cfg.COLUMNS_AUDIT_ASMTKEY]
     slkprogonlyin_amst_warn = slkprogonlyin_amst_warn[audit_cfg.COLUMNS_AUDIT_ASMTKEY]
 
+
+    ew2 = {
+       'dates_ew':final_dates_ew,
+       'asmt_key_errors': slkonlyin_amst_error,
+       'ep_key_errors': slkonlyin_ep_error,
+       'asmt_key_warn': slkprogonlyin_amst_warn,
+       'ep_key_warn': slkprogonlyin_ep_warn,
+    }
     # write_validation_results(good_df, dates_ewdf, slk_program_keys_ewdf)
-    write_validation_results(final_dates_ew, slkonlyin_amst_error,
-                             slkonlyin_ep_error, slkprogonlyin_amst_warn, slkprogonlyin_ep_warn)
+    write_validation_results(ew2, audit_exporter)
 
 
     # TODO :Clients without a single ATOM in the period
@@ -80,30 +88,11 @@ def process_errors_warnings(final_good,  ew:dict, merge_key2
         # SLK+Program not in Assessment-list -> WARNING (keep in good dataset)
 """
 
-
-# def key_matching_errors(merge_key: str, slk_prog_onlyin: pd.DataFrame, it1: IssueType,
-#                         slk_onlyin: pd.DataFrame,  it2: IssueType):
-#     # slk_prog_onlyin (SLK+Program) doesn't need to have anytihng that is also in slk_onlyin (SLK)
-#     # redundant
-#     slk_prog_onlyin1 = utdf.filter_out_common(
-#         slk_prog_onlyin, slk_onlyin, key=merge_key)
-#     # mask_common = slk_prog_onlyin[matchkey2].isin(slk_onlyin[matchkey2])
-#     slk_prog_warn = slk_prog_onlyin1.assign(
-#         issue_type=it1.value,
-#         issue_level=IssueLevel.WARNING.value)
-
-#     slk_onlyin_error = slk_onlyin.assign(issue_type=it2.value,
-#                                          issue_level=IssueLevel.ERROR.value)
-#     # only_in_errors = pd.concat([slk_prog_new, slk_onlyin_new])
-
-#     return slk_onlyin_error, slk_prog_warn
-
-
 def key_matching_errwarn_names(merge_key: str, slk_prog_onlyin: pd.DataFrame, it1: IssueType,
                         slk_onlyin: pd.DataFrame,  it2: IssueType):
     # slk_prog_onlyin (SLK+Program) doesn't need to have anytihng that is also in slk_onlyin (SLK)
     # redundant
-    slk_prog_onlyin1 = utdf.filter_out_common(
+    slk_prog_onlyin1, _ = utdf.get_delta_by_key(
         slk_prog_onlyin, slk_onlyin, key=merge_key)
     # mask_common = slk_prog_onlyin[matchkey2].isin(slk_onlyin[matchkey2])
     slk_prog_warn = slk_prog_onlyin1.assign(
@@ -118,35 +107,41 @@ def key_matching_errwarn_names(merge_key: str, slk_prog_onlyin: pd.DataFrame, it
 
 
 
-def write_validation_results(dates_ewdf: pd.DataFrame
-                             , asmt_key_errors: pd.DataFrame
-                             , ep_key_errors: pd.DataFrame
-                             , asmt_key_warn: pd.DataFrame
-                             , ep_key_warn: pd.DataFrame):
-    output_folder = 'data/out/errors_warnings/'
-
-    if utdf.has_data(dates_ewdf):
-      #utdf.drop_fields(dates_ewdf
-      #                , fieldnames='SurveyData') \
-      dates_ewdf.to_csv(f'{output_folder}dates_ewdf.csv'
-                        , index=False)
+def write_validation_results(errors_warnings:dict[str, pd.DataFrame]
+                             , audit_exporter: DataExporter):
     
-    if utdf.has_data(asmt_key_errors):
-      # utdf.drop_fields(asmt_key_errors
-      #                 , fieldnames='SurveyData') \
-      asmt_key_errors.to_csv(f'{output_folder}asmt_key_errors.csv'
-                            , index=False)
+    for ew_type_name, errs_warns in errors_warnings.items():
+      if utdf.has_data(errs_warns):
+        audit_exporter.export_data(ew_type_name, errs_warns)       
+       
+    
 
-    if utdf.has_data(ep_key_errors):
-      ep_key_errors.to_csv(f'{output_folder}ep_key_errors.csv'
-                           , index=False)
+    # if utdf.has_data(dates_ewdf):
+    #   audit_exporter.export_data("dates_ew", dates_ewdf)
+    #   # dates_ewdf.to_csv(f'{output_folder}dates_ewdf.csv'
+    #   #                   , index=False)
+    
+    # if utdf.has_data(asmt_key_errors):
+    #    audit_exporter.export_data("asmt_key_errors", asmt_key_errors)
+    #   # asmt_key_errors.to_csv(f'{output_folder}asmt_key_errors.csv'
+    #   #                       , index=False)
 
-    # utdf.drop_fields(asmt_key_warn
-    #                  , fieldnames='SurveyData') \
-    if utdf.has_data(asmt_key_warn):
-      asmt_key_warn.to_csv(f'{output_folder}asmt_key_warn.csv'
-                           , index=False)
+    # if utdf.has_data(ep_key_errors):
+    #    audit_exporter.export_data("ep_key_errors", ep_key_errors)
+    #   # ep_key_errors.to_csv(f'{output_folder}ep_key_errors.csv'
+    #   #                      , index=False)
 
-    if utdf.has_data(ep_key_warn):
-      ep_key_warn.to_csv(f'{output_folder}ep_key_warn.csv'
-                         , index=False)
+    # if utdf.has_data(asmt_key_warn):
+    #   audit_exporter.export_data("asmt_key_warn", asmt_key_warn)
+
+    # if utdf.has_data(ep_key_warn):
+    #   audit_exporter.export_data("ep_key_warn", ep_key_warn)
+
+
+    # if utdf.has_data(asmt_key_warn):
+    #   asmt_key_warn.to_csv(f'{output_folder}asmt_key_warn.csv'
+    #                        , index=False)
+
+    # if utdf.has_data(ep_key_warn):
+    #   ep_key_warn.to_csv(f'{output_folder}ep_key_warn.csv'
+    #                      , index=False)
