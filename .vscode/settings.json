@@ -8,5 +8,8 @@
   "azureFunctions.projectLanguageModel": 2,
   "python.autoComplete.extraPaths": [
     "C:\\Users\\aftab.jalal\\dev\\assessment_episode_matcher"
+  ],
+  "python.analysis.extraPaths": [
+    "C:\\Users\\aftab.jalal\\dev\\assessment_episode_matcher"
   ]
 }

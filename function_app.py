@@ -1,27 +1,24 @@
-# import os
-import csv
+import os
+# import csv
 from pathlib import Path
 # import sys
 import json
 import logging
 import azure.functions as func
+
 from utils import io
 # from assessment_episode_matcher import project_directory
 from assessment_episode_matcher.setup.bootstrap import Bootstrap
-# from aodsessions_matcher_exporter.utils.environment import ConfigManager
-# from aodsessions_matcher_exporter.utils.data_file.InputFileErrors import InputFileError
-# from aodsessions_matcher_exporter.utils.data_file.input_file_processor import get_df_from_reqbody
-# from aodsessions_matcher_exporter.matching.main import filter_good_bad
-# from aodsessions_matcher_exporter.models.categories import Purpose
-# from aodsessions_matcher_exporter.utils.df_ops_base import has_data, get_firststart_lastend
+from matching_helper import get_match_report
 
-# from aodsessions_matcher_exporter.utils.df_xtrct_prep import extract_atom_data, prep_episodes#, df_from_list, cols_prep
-# from aodsessions_matcher_exporter.utils.dtypes import make_serializable
-# from aodsessions_matcher_exporter.data_prep import prep_dataframe_matching #import prep_dataframe_nada 
-# from matching.matching import  setup_ep_mergekey,prep_assmt_4match
+# from assessment_episode_matcher.data_prep import prep_dataframe_nada
+# from assessment_episode_matcher.exporters import NADAbase as out_exporter
+
 
 # from datetime import date
 home = Path(__file__).parent #os.environ.get("HOME","")
+print ("Home path ", home)
+print("env envronem home", os.environ.get("HOME",""))
 bstrap = Bootstrap.setup(Path(home), env="dev")
 app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
 # ConfigManager().setup('dev')
@@ -45,55 +42,7 @@ app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
 # # @app.table_input(arg_name="",connection="",table_name="",partition_key="",row_key="",filter="",data_type="")
 # def SurveyTxtGenerator(req: func.HttpRequest) -> func.HttpResponse:
 #     logging.info('Python HTTP trigger function processed a request.')
-#     conn_str = os.environ["STORAGE_CONNECTION_STRING"]
-#     logging.info(f'My app setting value:{conn_str}')
 
-#     warning_limit_days = 3
-#     episode_boundary_slack_days = 7
-#     try:
-
-#         data = get_data(req)
-#         # filename = req.params.get('name') # mds_20230701_20231231.csv
-#         # start_date, end_date = get_details_from(data)
-#         ep_df = prep_episodes(data)
-        
-#         # TODO put these in an app.ini/app.cfg on Sharepoint which the logic app loads and passes in as query params
-#         # errors_only = False
-     
-#         # result_dicts = data
-#         result_dicts = get_matched_assessments(ep_df, Purpose.NADA # prep df types
-#                                                , episode_boundary_slack_days, warning_limit_days)
-#         #                                           nostrict=False)
-#         df_matched = result_dicts.get("result")
-#         # df_warnings = result_dicts.get("warnings")
-#         if not df_matched:
-#           results = json.dumps({ "result_code":"no_matches"
-#                                ,"result_message": result_dicts.get("result_message")
-#                                })
-#           return func.HttpResponse(body=results,
-#                                  mimetype="application/json", status_code=400)
-        
-#         # generate matching stats , and audit stats
-#         # get_matching_stats (df_matched)
-
-#         # save_surveytxt_file (df_matched)
-
-          
-#         # in dev env only :
-#         # logging.info(result_dicts)
-#         results = json.dumps(result_dicts) # how does a DF get converted?
-
-#         return func.HttpResponse(body=results,
-#                                  mimetype="application/json", status_code=200)
-#     except InputFileError as ife:
-#         logging.error(ife)
-#         # Using 201  (not appropriate) to distinguish in the LogicApp between error vs non-error state
-#         return func.HttpResponse(body=json.dumps({'error': ife.get_msg()}),
-#                                  mimetype="application/json", status_code=201)
-#     except Exception as e:
-#         _, _, exc_traceback = sys.exc_info()
-#         logging.exception(e.with_traceback(exc_traceback))
-#         return func.HttpResponse(json.dumps({'error': str(e)}), status_code=400)
     
         
         # TODO put these in an app.ini/app.cfg on Sharepoint which the logic app loads and passes in as query params
@@ -121,7 +70,9 @@ def main(episodes: func.InputStream):
     if not episodes.name:
       filename = Path("test.csv")
     else:
-      filename = Path(f"{episodes.name}") # atom-matching\\MDS\\filename.csv    
+      filename = Path(f"{episodes.name}") # atom-matching\\MDS\\filename.csv
+
+    
     # Process the CSV file data here
     csv_from_stream = episodes.read().decode('utf-8-sig')
 
@@ -130,72 +81,6 @@ def main(episodes: func.InputStream):
     # ...
     # print("csv dta", csv_from_stream)
     logging.info("CSV file processing completed.")
-
-
-# # @app.table_input(arg_name="",connection="",table_name="",partition_key="",row_key="",filter="",data_type="")
-# @app.route(route="EpisodeAssessmentMatching")
-# def EpisodeAssessmentMatching(req: func.HttpRequest) -> func.HttpResponse:
-
-# @app.route(route="EpisodeAssessmentMatching")
-# # @app.table_input(arg_name="",connection="",table_name="",partition_key="",row_key="",filter="",data_type="")
-# def EpisodeAssessmentMatching(req: func.HttpRequest) -> func.HttpResponse:
-#     logging.info('Python HTTP trigger function processed a request - MATCHING.')
-#     conn_str = os.environ["STORAGE_CONNECTION_STRING"]
-#     logging.info(f'My app setting value:{conn_str}')
-
-#     warning_limit_days = 3
-#     episode_boundary_slack_days = 7
-#     purpose:Purpose = Purpose.MATCHING
-
-#     try:
-
-#         ep_df = get_df_from_reqbody(request_body = req.get_body())
-#         if not has_data(ep_df):
-#            results = json.dumps({'error': 'No episode data'})
-#            return func.HttpResponse(body=results, mimetype="application/json", status_code=400)
-
-        
-#         ep_df = prep_episodes(ep_df)
-#         # ep_df = merge_keys(ep_df, merge_fields=['SLK', 'Program'])
-        
-#         period_start_dt, period_end_dt = date(2020,1,6), date(2024,3,17)  # atom_20200106-20240317
-#         #get_firststart_lastend(ep_df['CommencementDate']#   , ep_df['EndDate'])
-        
-        
-        
-#         atom_df, is_processed = extract_atom_data(period_start_dt, period_end_dt
-#                                           , purpose=purpose)# NADA->NSW Programs only
-#         if not has_data(atom_df):
-#           return func.HttpResponse(body=json.dumps({'error': "No ATOM data"}),
-#                                 mimetype="application/json", status_code=400)
-#         if not is_processed:
-#           atom_df = atom_df.rename(columns={'PartitionKey': 'SLK'})
-#           atom_df, warnings = prep_dataframe_matching(atom_df)
-#           # atom_df = merge_keys(atom_df, merge_fields=['SLK', 'RowKey'])  
-#         validation_issues, good_df, ew_df, slk_program_ewdf = filter_good_bad(ep_df, atom_df)
-                
-#         ew_df_srlzbl = make_serializable(ew_df, ['CommencementDate', 'EndDate'])
-
-#         if not has_data(good_df):
-#           #  results = json.dumps({'error': 'No matches found'})
-#           result_type = "No matches found"
-        
-#         else:
-#           good_df_srlzbl  = make_serializable(good_df, ['CommencementDate', 'EndDate', 'AssessmentDate'])
-#           result_type = f"{len(good_df)} good results."
-                
-#         results = json.dumps({ "result_type":result_type
-#                                 , "matches": good_df_srlzbl.to_dict()
-#                                 ,"result_data": ew_df_srlzbl.to_dict()
-#                                 ,"errors" : [v.to_dict() for v in validation_issues]
-#                           })
-
-#         return func.HttpResponse(body=results,
-#                                 mimetype="application/json", status_code=200)
-          
-#         # in dev env only :
-#         # logging.info(result_dicts)
-
 #     except InputFileError as ife:
 #         logging.error(ife)
 #         # Using 201  (not appropriate) to distinguish in the LogicApp between error vs non-error state
@@ -204,81 +89,99 @@ def main(episodes: func.InputStream):
 #     except Exception as e:
 #         _, _, exc_traceback = sys.exc_info()
 #         logging.exception(e.with_traceback(exc_traceback))
-#         return func.HttpResponse(json.dumps({'error': str(e)}), status_code=400)    
+#         return func.HttpResponse(json.dumps({'error': str(e)}), status_code=400) 
     
 
 
-# def main(csv_data , purpose:Purpose
-#                             , episode_boundary_slack_days:int=7
-#                             , warning_limit_days:int=3):
+@app.route(route="match")
+@app.function_name(name="HttpTriggerMatching")
+def perform_mds_atom_matches(req: func.HttpRequest) -> str: # , msg: func.Out[str])
+    logging.info('Python HTTP trigger function processed a request - MATCHING.')
+
+    print("bootstrap", bstrap)
+
+    start_dt = req.params.get('start_date',"") 
+    end_dt = req.params.get('end_date',"") 
+    purpose = req.params.get('purpose', "NADA")    
+    result = get_match_report(start_dt, end_dt)
+    return result
+
+
+
+
+# def perform_mds_atom_matches(req: func.HttpRequest) -> str: # , msg: func.Out[str])
+#     logging.info('Python HTTP trigger function processed a request - MATCHING.')
+
+#     print("bootstrap", bstrap)
+#     cfg, logger = bstrap.config, bstrap.logger    
+#     connection_string = str(cfg.get(ConfigKeys.AZURE_STORAGE_CONNECTION_STRING.value,""))
+#     print(connection_string)
+
+#     slack_for_matching = int(cfg.get(ConfigKeys.MATCHING_NDAYS_SLACK.value, 7))
+
+#     start_dt = req.params.get('start_date',"") 
+#     end_dt = req.params.get('end_date',"") 
+#     purpose = req.params.get('purpose', "NADA")
+    
+#     # df = EpisodesImporter.import_data(eps_st=start_dt, eps_end="",prefix="MDS", suffix="AllPrograms")
+#     episode_df = EpisodesImporter.import_data(
+#                             start_dt, end_dt
+#                             , prefix="MDS", suffix="AllPrograms")
+#     if not utdf.has_data(episode_df):
+#       logging.error("No episodes")
+#       return json.dumps({"result":"no episode data"})
+#                         # func.HttpResponse(body=json.dumps({"result":"no episode data"}),
+#                         #         mimetype="application/json", status_code=200)    
+    
+#     atoms_df = ATOMsImporter.import_data(
+#                             start_dt, end_dt
+#                             , purpose=Purpose.NADA, refresh=True)
+#                             # , prefix="MDS", suffix="AllPrograms")
+#     if not utdf.has_data(atoms_df):
+#       logging.error("No ATOMs")
+#       return json.dumps({"result":"no ATOM data"})
+#       # func.HttpResponse(body=json.dumps({"result":"no ATOM data"}),
+#       #                           mimetype="application/json", status_code=200) 
+#     reporting_start, reporting_end = get_date_from_str (start_dt,"%Y%m%d") \
+#                                   , get_date_from_str (end_dt,"%Y%m%d")
+#     a_df, e_df, inperiod_atomslk_notin_ep, inperiod_epslk_notin_atom = \
+#       match_helper.get_data_for_matching2(episode_df, atoms_df
+#                                         , reporting_start, reporting_end, slack_for_matching=7)
+
+#     if not utdf.has_data(a_df) or not utdf.has_data(e_df):
+#       print("No data to match. Ending")
+#       logging.error("No ATOMs")
+#       return json.dumps({"result":"no ATOM data"})        
+#         # return func.HttpResponse(body=json.dumps({"result":"no data"}),
+#         #                         mimetype="application/json", status_code=200)    
+#     # e_df.to_csv('data/out/active_episodes.csv')
+#     final_good, ew = match_helper.match_and_get_issues(e_df, a_df
+#                                           , inperiod_atomslk_notin_ep
+#                                           , inperiod_epslk_notin_atom, slack_for_matching)
+
+#     warning_asmt_ids  = final_good.SLK_RowKey.unique()
+    
+
+#     #TODO : #AutidExporter should have write to blob function
+#     # aexptr = AuditExporter(config={'location' : f'{bstrap.ew_dir}'})
+
+#     # process_errors_warnings(ew, warning_asmt_ids, dk.client_id.value
+#     #                         , period_start=start_dt
+#     #                         , period_end=end_dt
+#     #                         , audit_exporter=aexptr)
   
 
-#   ep_df = epdf_from_list(csv_data)
-#   ep_df['Program'] = ep_df['ESTABLISHMENT IDENTIFIER'].map(EstablishmentID_Program)
-#   # ep_df = merge_keys(ep_df, merge_fields=['SLK', 'Program'])
-  
-#   period_start_dt, period_end_dt = get_firststart_lastend(ep_df['CommencementDate']
-#                                                             , ep_df['EndDate'])
-#           # result_dicts = data
-#   atom_df, is_processed = extract_atom_data(period_start_dt, period_end_dt
-#                                     , purpose=purpose)# NADA->NSW Programs only
-#   if not has_data(atom_df):
-#       return None
-#   if not is_processed:
-#     atom_df = atom_df.rename(columns={'PartitionKey': 'SLK'})
-#     # atom_df = merge_keys(atom_df, merge_fields=['SLK', 'RowKey'])  
-#   validation_issues, good_df, ew_df = filter_good_bad(ep_df, atom_df)
+#     # df_reindexed = final_good.reset_index(drop=True)
+#     # df_reindexed.to_csv(f'{bstrap.out_dir}/reindexed.csv', index_label="index")
 
-#   # df_matched, all_ew, has_error = get_matched_assessments(ep_df, atom_df,for_matching # prep df types
-#   #                                              , episode_boundary_slack_days, warning_limit_days)
-#   print(f"{good_df=}")
-#   print(f"{ew_df=}")
-#   print(f"{validation_issues=}")
+#     # rexptr.export(df_reindexed)    #TODO : push df_reindexed to blob
 
+#     # # return df_reindexed
 
-# if __name__ == '__main__':
-#   import pandas as pd
-#   fname = "./data/test_nsw_mds.csv"
-#   df = pd.read_csv(fname)
-#   csv = [df.columns.tolist()] +  df.values.tolist()
-#   # Convert DataFrame to CSV string
-#   # csv_string = df.to_csv(index=False)#, lineterminator='\r\n')
-#   # csv_string_custom_breaks = csv_string.replace('\n', custom_line_break)
-#   # import csv
+#     # msg.set(json.dumps({"result":df_reindexed})
+#     # # cache_file_path = bstrap.in_dir / 'cache_file.txt'
+#     # # cache_file_path.touch()
+#     return "ok"
+#     # func.HttpResponse(body=json.dumps({"result":df_reindexed}),
+#                                 # mimetype="application/json", status_code=200)
 
-#   # def read_csv_to_list(file_path):
-#   #     results:list[list[str]] = []
-#   #     with open(file_path, mode='r', newline='', encoding='utf-8') as file:
-#   #         reader = csv.reader(file, quotechar='"')  # Change quotechar if necessary
-#   #         for row in reader:
-#   #             # row_string = ', '.join(row)  # Join the row elements into a single string
-#   #             results.append(row)
-#   #     return results
-#     # SurveyTxtGenerator()
-#     # data = [] 
-
-#   # data = read_csv_to_list(fname)
-#     # data = read_csv_to_dict_list(csv_file_path)
-  
-#   warning_limit_days = 3
-#   episode_boundary_slack_days = 7
-#   for_matching:Purpose = Purpose.MATCHING
-#   main(csv,for_matching)
-
-#     # name = req.params.get('name')
-#     # if not name:
-#     #     try:
-#     #         req_body = req.get_json()
-#     #     except ValueError:
-#     #         pass
-#     #     else:
-#     #         name = req_body.get('name')
-
-#     # if name:
-#     #     return func.HttpResponse(f"Hello, {name}. This HTTP triggered function executed successfully.")
-#     # else:
-#     #     return func.HttpResponse(
-#     #          "This HTTP triggered function executed successfully. Pass a name in the query string or in the request body for a personalized response.",
-#     #          status_code=200
-#     #     )
- 
