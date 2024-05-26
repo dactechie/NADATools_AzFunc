@@ -10,3 +10,8 @@
 
 * to run : azurite -s -l c:\azurite -d c:\azurite\debug.log
 * see the vscode extension for more details
+
+
+# Pushing to cloud:
+if not using the azure extension then:
+func azure functionapp publish nada-tools-directions --build remote

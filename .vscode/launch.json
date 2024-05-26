@@ -9,5 +9,19 @@
             "preLaunchTask": "func: host start",
             "host": "localhost"
     }
+    // {
+    //   "name": "Attach to Python Functions",
+    //         "type": "python",
+    //         "request": "attach",
+    //         "port": 5678,
+    //         "preLaunchTask": "func: host start",
+    //         "host": "nada-tools-directions.azurewebsites.net",
+    //         "pathMappings": [
+    //           {
+    //               "localRoot": "${workspaceFolder}",
+    //               "remoteRoot": "/home/site/wwwroot"
+    //           }
+    //       ]
+    // }
   ]
 }

@@ -1,4 +1,4 @@
-import os
+# import os
 # import csv
 from pathlib import Path
 # import sys
@@ -6,10 +6,14 @@ import json
 import logging
 import azure.functions as func
 
-from utils import io
+# import ptvsd
+# ptvsd.enable_attach(address=('0.0.0.0', 5678))
+# ptvsd.wait_for_attach()
+# from utils import io
 # from assessment_episode_matcher import project_directory
 from assessment_episode_matcher.setup.bootstrap import Bootstrap
 from matching_helper import get_match_report
+from nada_helper import generate_nada_export
 
 # from assessment_episode_matcher.data_prep import prep_dataframe_nada
 # from assessment_episode_matcher.exporters import NADAbase as out_exporter
@@ -17,10 +21,13 @@ from matching_helper import get_match_report
 
 # from datetime import date
 home = Path(__file__).parent #os.environ.get("HOME","")
-print ("Home path ", home)
-print("env envronem home", os.environ.get("HOME",""))
-bstrap = Bootstrap.setup(Path(home), env="dev")
+print("Going to do setup via boostrap")
+bstrap = Bootstrap.setup(Path(home), env="prod")
+# print("Done Setup")
 app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
+
+# print ("Home path ", home)
+# print("env envronem home", os.environ.get("HOME",""))
 # ConfigManager().setup('dev')
 """
   - see full documentation here __ TODO: add docus
@@ -42,146 +49,44 @@ app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
 # # @app.table_input(arg_name="",connection="",table_name="",partition_key="",row_key="",filter="",data_type="")
 # def SurveyTxtGenerator(req: func.HttpRequest) -> func.HttpResponse:
 #     logging.info('Python HTTP trigger function processed a request.')
-
-    
         
         # TODO put these in an app.ini/app.cfg on Sharepoint which the logic app loads and passes in as query params
         # errors_only = False
             # result_dicts = data
-
-@app.route(route="base")
 # @app.table_input(arg_name="",connection="",table_name="",partition_key="",row_key="",filter="",data_type="")
+@app.route(route="base")
 def BaseTest(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed a request - MATCHING.')
-    print("bootstrap", bstrap)
-    # cache_file_path = bstrap.in_dir / 'cache_file.txt'
-    # cache_file_path.touch()
+
     return func.HttpResponse(body=json.dumps({"result":"ok"}),
                                 mimetype="application/json", status_code=200)
 
 
-@app.function_name(name="EpisodesBlobTriggerFunc")
-@app.blob_trigger(arg_name="episodes", path="atom-matching/MDS/{name}", connection="AzureWebJobsStorage")
-def main(episodes: func.InputStream):
-    logging.info(f"Python blob trigger function processed blob \n"
-                 f"Name: {episodes.name}\n"
-                 f"Blob Size: {episodes.length} bytes")
-    
-    if not episodes.name:
-      filename = Path("test.csv")
-    else:
-      filename = Path(f"{episodes.name}") # atom-matching\\MDS\\filename.csv
+# @app.route(route="surveytxt")
+# # @app.function_name(name="HttpTriggerMatching")
+# def generate_surveytxt(req: func.HttpRequest) -> func.HttpResponse: # , msg: func.Out[str])
+#     logging.info('Python HTTP trigger function processed a request - MATCHING.')
+#     start_dt = req.params.get('start_date',"") 
+#     end_dt = req.params.get('end_date',"")
+#     matched = get_matched_assessments()
+#     generate_nada_export(matched, f"NADA/{start_dt}-{end_dt}.parquet")
 
-    
-    # Process the CSV file data here
-    csv_from_stream = episodes.read().decode('utf-8-sig')
-
-    io.write_stream_to_csv(bstrap.in_dir, f"T_{filename.name}" , csv_from_stream)
-    # Perform operations with the CSV data
-    # ...
-    # print("csv dta", csv_from_stream)
-    logging.info("CSV file processing completed.")
-#     except InputFileError as ife:
-#         logging.error(ife)
-#         # Using 201  (not appropriate) to distinguish in the LogicApp between error vs non-error state
-#         return func.HttpResponse(body=json.dumps({'error': ife.get_msg()}),
-#                                  mimetype="application/json", status_code=201)
-#     except Exception as e:
-#         _, _, exc_traceback = sys.exc_info()
-#         logging.exception(e.with_traceback(exc_traceback))
-#         return func.HttpResponse(json.dumps({'error': str(e)}), status_code=400) 
-    
-
+#     return func.HttpResponse(body=json.dumps({"result": result}),
+#                                 mimetype="application/json", status_code=200)
 
 @app.route(route="match")
-@app.function_name(name="HttpTriggerMatching")
-def perform_mds_atom_matches(req: func.HttpRequest) -> str: # , msg: func.Out[str])
+# @app.function_name(name="HttpTriggerMatching")
+def perform_mds_atom_matches(req: func.HttpRequest) -> func.HttpResponse: # , msg: func.Out[str])
     logging.info('Python HTTP trigger function processed a request - MATCHING.')
 
-    print("bootstrap", bstrap)
-
+    # print("bootstrap", bstrap)
+    print("helo")
     start_dt = req.params.get('start_date',"") 
     end_dt = req.params.get('end_date',"") 
-    purpose = req.params.get('purpose', "NADA")    
+    logging.info(f"Srart date , End date {start_dt}  {end_dt}")
     result = get_match_report(start_dt, end_dt)
-    return result
-
-
-
-
-# def perform_mds_atom_matches(req: func.HttpRequest) -> str: # , msg: func.Out[str])
-#     logging.info('Python HTTP trigger function processed a request - MATCHING.')
-
-#     print("bootstrap", bstrap)
-#     cfg, logger = bstrap.config, bstrap.logger    
-#     connection_string = str(cfg.get(ConfigKeys.AZURE_STORAGE_CONNECTION_STRING.value,""))
-#     print(connection_string)
-
-#     slack_for_matching = int(cfg.get(ConfigKeys.MATCHING_NDAYS_SLACK.value, 7))
-
-#     start_dt = req.params.get('start_date',"") 
-#     end_dt = req.params.get('end_date',"") 
-#     purpose = req.params.get('purpose', "NADA")
     
-#     # df = EpisodesImporter.import_data(eps_st=start_dt, eps_end="",prefix="MDS", suffix="AllPrograms")
-#     episode_df = EpisodesImporter.import_data(
-#                             start_dt, end_dt
-#                             , prefix="MDS", suffix="AllPrograms")
-#     if not utdf.has_data(episode_df):
-#       logging.error("No episodes")
-#       return json.dumps({"result":"no episode data"})
-#                         # func.HttpResponse(body=json.dumps({"result":"no episode data"}),
-#                         #         mimetype="application/json", status_code=200)    
     
-#     atoms_df = ATOMsImporter.import_data(
-#                             start_dt, end_dt
-#                             , purpose=Purpose.NADA, refresh=True)
-#                             # , prefix="MDS", suffix="AllPrograms")
-#     if not utdf.has_data(atoms_df):
-#       logging.error("No ATOMs")
-#       return json.dumps({"result":"no ATOM data"})
-#       # func.HttpResponse(body=json.dumps({"result":"no ATOM data"}),
-#       #                           mimetype="application/json", status_code=200) 
-#     reporting_start, reporting_end = get_date_from_str (start_dt,"%Y%m%d") \
-#                                   , get_date_from_str (end_dt,"%Y%m%d")
-#     a_df, e_df, inperiod_atomslk_notin_ep, inperiod_epslk_notin_atom = \
-#       match_helper.get_data_for_matching2(episode_df, atoms_df
-#                                         , reporting_start, reporting_end, slack_for_matching=7)
-
-#     if not utdf.has_data(a_df) or not utdf.has_data(e_df):
-#       print("No data to match. Ending")
-#       logging.error("No ATOMs")
-#       return json.dumps({"result":"no ATOM data"})        
-#         # return func.HttpResponse(body=json.dumps({"result":"no data"}),
-#         #                         mimetype="application/json", status_code=200)    
-#     # e_df.to_csv('data/out/active_episodes.csv')
-#     final_good, ew = match_helper.match_and_get_issues(e_df, a_df
-#                                           , inperiod_atomslk_notin_ep
-#                                           , inperiod_epslk_notin_atom, slack_for_matching)
-
-#     warning_asmt_ids  = final_good.SLK_RowKey.unique()
-    
-
-#     #TODO : #AutidExporter should have write to blob function
-#     # aexptr = AuditExporter(config={'location' : f'{bstrap.ew_dir}'})
-
-#     # process_errors_warnings(ew, warning_asmt_ids, dk.client_id.value
-#     #                         , period_start=start_dt
-#     #                         , period_end=end_dt
-#     #                         , audit_exporter=aexptr)
+    return func.HttpResponse(body=json.dumps({"result": result}),
+                                mimetype="application/json", status_code=200)
   
-
-#     # df_reindexed = final_good.reset_index(drop=True)
-#     # df_reindexed.to_csv(f'{bstrap.out_dir}/reindexed.csv', index_label="index")
-
-#     # rexptr.export(df_reindexed)    #TODO : push df_reindexed to blob
-
-#     # # return df_reindexed
-
-#     # msg.set(json.dumps({"result":df_reindexed})
-#     # # cache_file_path = bstrap.in_dir / 'cache_file.txt'
-#     # # cache_file_path.touch()
-#     return "ok"
-#     # func.HttpResponse(body=json.dumps({"result":df_reindexed}),
-#                                 # mimetype="application/json", status_code=200)
-
