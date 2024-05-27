@@ -1,28 +1,22 @@
-# import os
-# import csv
 from pathlib import Path
-# import sys
 import json
 import logging
 import azure.functions as func
-
+# from assessment_episode_matcher.setup.bootstrap import Bootstrap
+from assessment_episode_matcher.utils.environment import ConfigManager
+from matching_helper import match_store_results
+from nada_helper import generate_nada_save, load_blob_config, write_aod_warnings
 # import ptvsd
 # ptvsd.enable_attach(address=('0.0.0.0', 5678))
 # ptvsd.wait_for_attach()
-# from utils import io
-# from assessment_episode_matcher import project_directory
-from assessment_episode_matcher.setup.bootstrap import Bootstrap
-from matching_helper import get_match_report
-from nada_helper import generate_nada_export
-
-# from assessment_episode_matcher.data_prep import prep_dataframe_nada
-# from assessment_episode_matcher.exporters import NADAbase as out_exporter
 
 
-# from datetime import date
 home = Path(__file__).parent #os.environ.get("HOME","")
+ConfigManager()
+ConfigManager.setup(root=home,env="prod")
 print("Going to do setup via boostrap")
-bstrap = Bootstrap.setup(Path(home), env="prod")
+# bstrap = Bootstrap.setup(Path(home), env="prod")
+config = load_blob_config()
 # print("Done Setup")
 app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
 
@@ -45,14 +39,7 @@ app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
 
 
 """
-# @app.route(route="SurveyTxtGenerator")
-# # @app.table_input(arg_name="",connection="",table_name="",partition_key="",row_key="",filter="",data_type="")
-# def SurveyTxtGenerator(req: func.HttpRequest) -> func.HttpResponse:
-#     logging.info('Python HTTP trigger function processed a request.')
-        
-        # TODO put these in an app.ini/app.cfg on Sharepoint which the logic app loads and passes in as query params
-        # errors_only = False
-            # result_dicts = data
+
 # @app.table_input(arg_name="",connection="",table_name="",partition_key="",row_key="",filter="",data_type="")
 @app.route(route="base")
 def BaseTest(req: func.HttpRequest) -> func.HttpResponse:
@@ -62,31 +49,36 @@ def BaseTest(req: func.HttpRequest) -> func.HttpResponse:
                                 mimetype="application/json", status_code=200)
 
 
-# @app.route(route="surveytxt")
-# # @app.function_name(name="HttpTriggerMatching")
-# def generate_surveytxt(req: func.HttpRequest) -> func.HttpResponse: # , msg: func.Out[str])
-#     logging.info('Python HTTP trigger function processed a request - MATCHING.')
-#     start_dt = req.params.get('start_date',"") 
-#     end_dt = req.params.get('end_date',"")
-#     matched = get_matched_assessments()
-#     generate_nada_export(matched, f"NADA/{start_dt}-{end_dt}.parquet")
+@app.route(route="surveytxt")
+def generate_surveytxt(req: func.HttpRequest) -> func.HttpResponse: # , msg: func.Out[str])
+    logging.info('Called - SurveyTxt Generate. (expects matching to be complete)')
+    start_dt = req.params.get('start_date',"") 
+    end_dt = req.params.get('end_date',"")
+    logging.info(f"Start date , End date {start_dt}  {end_dt}")
+    len_nada, warnings_aod = generate_nada_save(start_dt, end_dt, config)
+    result = {"num_nada_rows": len_nada}
 
-#     return func.HttpResponse(body=json.dumps({"result": result}),
-#                                 mimetype="application/json", status_code=200)
+    if warnings_aod:
+      container_name="atom-matching" 
+      p_str = f"{start_dt}-{end_dt}"
+      outfile = write_aod_warnings(warnings_aod, container_name, period_str=p_str)
+      logging.info(f"Wrote AOD Warnings to {outfile}") 
+      result["warnings_len"] = len(warnings_aod)
+
+    return func.HttpResponse(body=json.dumps(result),
+                                mimetype="application/json", status_code=200)
+
 
 @app.route(route="match")
 # @app.function_name(name="HttpTriggerMatching")
 def perform_mds_atom_matches(req: func.HttpRequest) -> func.HttpResponse: # , msg: func.Out[str])
-    logging.info('Python HTTP trigger function processed a request - MATCHING.')
+    logging.info('Called Match')
 
-    # print("bootstrap", bstrap)
-    print("helo")
     start_dt = req.params.get('start_date',"") 
     end_dt = req.params.get('end_date',"") 
-    logging.info(f"Srart date , End date {start_dt}  {end_dt}")
-    result = get_match_report(start_dt, end_dt)
-    
-    
+    logging.info(f"Start date , End date {start_dt}  {end_dt}")
+    result = match_store_results(start_dt, end_dt)
+        
     return func.HttpResponse(body=json.dumps({"result": result}),
                                 mimetype="application/json", status_code=200)
   
