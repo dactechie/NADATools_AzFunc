@@ -1,4 +1,4 @@
 azure-core==1.30.0
 azure-functions==1.18.0
-assessment_episode_matcher==0.5.2
+assessment_episode_matcher==0.5.4
 # -e C:\\Users\\aftab.jalal\\dev\\assessment_episode_matcher

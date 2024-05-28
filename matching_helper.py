@@ -16,7 +16,7 @@ import assessment_episode_matcher.utils.df_ops_base as utdf
 from assessment_episode_matcher.mytypes import DataKeys as dk, Purpose
 
 
-def match_store_results(reporting_start_str:str, reporting_end_str:str) -> str:
+def match_store_results(reporting_start_str:str, reporting_end_str:str, config:dict) -> str:
     container = "atom-matching"
     ep_folder, asmt_folder = "MDS", "ATOM"
     p_str = f"{reporting_start_str}-{reporting_end_str}"
@@ -72,13 +72,14 @@ def match_store_results(reporting_start_str:str, reporting_end_str:str) -> str:
     # e_df.to_csv('data/out/active_episodes.csv')
     final_good, ew = match_helper.match_and_get_issues(e_df, a_df
                                           , inperiod_atomslk_notin_ep
-                                          , inperiod_epslk_notin_atom, slack_for_matching)
+                                          , inperiod_epslk_notin_atom
+                                          , slack_for_matching
+                                          , config)
 
     warning_asmt_ids  = final_good.SLK_RowKey.unique()
       
     ae = AzureBlobExporter(container_name=atom_file_source.container_name
-                           ,config={'location' : f"{p_str}/errors_warnings"})
-    # ae = AuditExporter(config={'location' : f'{Bootstrap.ew_dir}'})
+                           ,config={'location' : f"{p_str}/errors_warnings"})    
     process_errors_warnings(ew, warning_asmt_ids, dk.client_id.value
                             , period_start=reporting_start
                             , period_end=reporting_end
