@@ -1,6 +1,6 @@
 *.json
 .venv
-data/
+data/**
 __*/**
 local.settings.json
 .vscode

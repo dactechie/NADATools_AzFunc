@@ -1,5 +1,8 @@
+import os
 import logging
 import pandas as pd
+from assessment_episode_matcher.configs import load_blob_config
+from assessment_episode_matcher.utils.environment import ConfigKeys
 from assessment_episode_matcher.exporters.main import AzureBlobExporter
 from assessment_episode_matcher.data_prep import prep_dataframe_nada
 from assessment_episode_matcher.exporters import NADAbase as nada_df_generator
@@ -7,7 +10,6 @@ from assessment_episode_matcher.importers.main import  BlobFileSource
 import assessment_episode_matcher.utils.df_ops_base as utdf
 import assessment_episode_matcher.importers.nada_indexed as io
 from assessment_episode_matcher.mytypes import AODWarning, CSVTypeObject
-
 
 def generate_nada_export(matched_assessments:pd.DataFrame, config:dict) \
           -> tuple[pd.DataFrame,list[AODWarning]]:
@@ -35,8 +37,9 @@ def get_matched_assessments(container_name, st_dt, end_dt):
 
 
 def generate_nada_save(reporting_start_str:str
-        , reporting_end_str :str, config:dict) -> tuple[int, list[AODWarning]|None]:
-  container_name="atom-matching" 
+        , reporting_end_str :str
+        , container_name:str, config:dict) -> tuple[int, list[AODWarning]|None]:
+  
   p_str = f"{reporting_start_str}-{reporting_end_str}"
 
   df_reindexed, fname  = get_matched_assessments(container_name
@@ -57,15 +60,6 @@ def generate_nada_save(reporting_start_str:str
   return len(nada), warnings_aod
 
 
-
-def load_blob_config():
-  config_file_source = BlobFileSource(container_name="atom-matching"
-                                            , folder_path=".")
-  config = config_file_source.load_json_file(filename="configuration.json", dtype=str)
-  # print(config)
-  return config
-
-
 def write_aod_warnings(data:list[AODWarning]
                        , container_name:str, period_str:str) -> str:
 
@@ -74,21 +68,53 @@ def write_aod_warnings(data:list[AODWarning]
   
   header = ["SLK","RowKey","drug_name","field_name", "field_value"]
   warnings_list = CSVTypeObject(header=header, rows=data)
-  exp = AzureBlobExporter(container_name=container_name) #
+  exp = AzureBlobExporter(container_name=container_name)
   exp.export_csv(data_name=outfile, data=warnings_list)  
   return outfile
 
 
-def main ():
-    # reporting_start_str, reporting_end_str =  '20231001', '20231231' # Q4 2023
-  config = load_blob_config()
-  reporting_start_str, reporting_end_str =  '20240101', '20240331' # Q1 2024
-  len_nada , warnings_aod = generate_nada_save(reporting_start_str, reporting_end_str, config)
-  if warnings_aod:
-    container_name="atom-matching" 
-    p_str = f"{reporting_start_str}-{reporting_end_str}"
+def get_essentials(container_name:str|None, qry_params:dict) -> tuple[dict,dict]:
+  if not (qry_params and qry_params.get('s') and qry_params.get('e')):
+    msg = f"unable to proceed without start and end dates."
+    logging.exception(msg)
+    return {}, {"error": msg }
+   
+  if not container_name:
+      msg = f"unable to proceed without app config {ConfigKeys.AZURE_BLOB_CONTAINER.value}"
+      logging.exception(msg)
+      return {}, {"error": msg }
+  
+  config = load_blob_config(container_name)
+  if not config:
+      msg = f"unable to proceed without configuration.json file (blob-container: {container_name})."
+      logging.exception(msg)
+      return {}, {"error": msg }
+  
+  return config, {}
 
+
+def run(start_yyyymmd:str, end_yyyymmd:str) -> dict:
+
+  container_name = os.environ.get('AZURE_BLOB_CONTAINER',"")
+
+  config, errors = get_essentials(container_name
+                                  , qry_params={'s':start_yyyymmd
+                                                , 'e':end_yyyymmd})
+  if errors:
+    return errors
+  
+  len_nada , warnings_aod = generate_nada_save(start_yyyymmd
+                                               , end_yyyymmd
+                                               , container_name
+                                               , config)
+  result = {"num_nada_rows": len_nada}
+  logging.info(f"Recorded {len_nada} NADA records in storage.")
+
+  if warnings_aod:    
+    p_str = f"{start_yyyymmd}-{end_yyyymmd}"
     outfile = write_aod_warnings(warnings_aod, container_name, period_str=p_str)
     
-    logging.info(f"Wrote AOD Warnings to {outfile}") 
+    logging.info(f"Wrote AOD Warnings to {outfile}")
+    result["warnings_len"] = len(warnings_aod)
+  return result
 

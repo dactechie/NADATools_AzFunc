@@ -1,13 +1,13 @@
+import os
 import json
 import logging
 import azure.functions as func
-from matching_helper import match_store_results
-# from nada_helper import generate_nada_save,  write_aod_warnings , load_blob_config
+import matching_helper as ATOMEpisodeMatcher
+import nada_helper as NADAImportFileGenerator
 
-# config = load_blob_config()
 # if config:
 #   print("Config loaded: " ,config.keys())
-config = {}
+# config = load_blob_config()
 # Bootstrap.setup(Path(home), env="prod")
 
 # print("Done Setup")
@@ -26,8 +26,6 @@ app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
      * Errors   - ATOMs with no Episode
      * Errors with reasons  - Incorrect Program for ATOM/Episode, Out of Episode bounds
      * Warning PDC doesn't match between ATOM and Episode
-
-
 """
 
 # @app.table_input(arg_name="",connection="",table_name="",partition_key="",row_key="",filter="",data_type="")
@@ -39,25 +37,19 @@ def BaseTest(req: func.HttpRequest) -> func.HttpResponse:
                                 mimetype="application/json", status_code=200)
 
 
-# @app.route(route="surveytxt")
-# def generate_surveytxt(req: func.HttpRequest) -> func.HttpResponse: # , msg: func.Out[str])
-#     logging.info('Called - SurveyTxt Generate. (expects matching to be complete)')
-#     start_dt = req.params.get('start_date',"") 
-#     end_dt = req.params.get('end_date',"")
-#     logging.info(f"Start date , End date {start_dt}  {end_dt}")
+@app.route(route="surveytxt")
+def generate_surveytxt(req: func.HttpRequest) -> func.HttpResponse: # , msg: func.Out[str])
+    logging.info('Called - SurveyTxt Generate. (expects matching to be complete)')
+    start_dt = req.params.get('start_date',"") 
+    end_dt = req.params.get('end_date',"")
+    logging.info(f"Start date , End date {start_dt}  {end_dt}")
 
-#     len_nada, warnings_aod = generate_nada_save(start_dt, end_dt, config)
-#     result = {"num_nada_rows": len_nada}
+    result = NADAImportFileGenerator.run(start_yyyymmd=start_dt
+                                         ,end_yyyymmd=end_dt)
+    logging.info('Completed - SurveyTxt Generate.')
 
-#     if warnings_aod:
-#       container_name="atom-matching" 
-#       p_str = f"{start_dt}-{end_dt}"
-#       outfile = write_aod_warnings(warnings_aod, container_name, period_str=p_str)
-#       logging.info(f"Wrote AOD Warnings to {outfile}") 
-#       result["warnings_len"] = len(warnings_aod)
-
-#     return func.HttpResponse(body=json.dumps(result),
-#                                 mimetype="application/json", status_code=200)
+    return func.HttpResponse(body=json.dumps(result),
+                                mimetype="application/json", status_code=200)
 
 
 @app.route(route="match")
@@ -66,10 +58,14 @@ def perform_mds_atom_matches(req: func.HttpRequest) -> func.HttpResponse: # , ms
     logging.info('Called Match')
 
     start_dt = req.params.get('start_date',"") 
-    end_dt = req.params.get('end_date',"") 
+    end_dt = req.params.get('end_date',"")     
     logging.info(f"Start date , End date {start_dt}  {end_dt}")
-    result = match_store_results(start_dt, end_dt, config)
-        
-    return func.HttpResponse(body=json.dumps({"result": result}),
+    
+    result = ATOMEpisodeMatcher.run(start_yyyymmd=start_dt
+                                    ,end_yyyymmd=end_dt)
+    
+    logging.info('Completed Match')
+
+    return func.HttpResponse(body=json.dumps(result),
                                 mimetype="application/json", status_code=200)
   
