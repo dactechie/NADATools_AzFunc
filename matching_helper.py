@@ -20,12 +20,12 @@ from assessment_episode_matcher.mytypes import DataKeys as dk, Purpose
 def get_essentials(container_name:str|None, qry_params:dict) -> tuple[dict,dict]:
   if not (qry_params and qry_params.get('s') and qry_params.get('e')):
     msg = f"unable to proceed without start and end dates."
-    logging.exception(msg)
+    logging.exception(msg , stack_info=True, exc_info=True)
     return {}, {"error": msg }
    
   if not container_name:
       msg = f"unable to proceed without app config {ConfigKeys.AZURE_BLOB_CONTAINER.value}"
-      logging.exception(msg)
+      logging.exception(msg , stack_info=True, exc_info=True)
       return {}, {"error": msg }
   
   config = load_blob_config(container_name)
@@ -64,7 +64,7 @@ def match_store_results(reporting_start_str:str, reporting_end_str:str
 
     slack_for_matching = 7# int(cfg.get(ConfigKeys.MATCHING_NDAYS_SLACK.value, 7))
     # print(Bootstrap.config)
-    print(ConfigKeys.MATCHING_NDAYS_SLACK.value)
+    logging.info(ConfigKeys.MATCHING_NDAYS_SLACK.value)
 
     reporting_start, reporting_end = get_date_from_str (reporting_start_str,"%Y%m%d") \
                                       , get_date_from_str (reporting_end_str,"%Y%m%d")
@@ -108,7 +108,7 @@ def match_store_results(reporting_start_str:str, reporting_end_str:str
       match_helper.get_data_for_matching2(episode_df, atoms_df
                                         , reporting_start, reporting_end, slack_for_matching=7)    
     if not utdf.has_data(a_df) or not utdf.has_data(e_df):
-        print("No data to match. Ending")
+        logging.warn("No data to match. Ending")
         return {"result":"No Data to match." }
     # e_df.to_csv('data/out/active_episodes.csv')
     final_good, ew = match_helper.match_and_get_issues(e_df, a_df

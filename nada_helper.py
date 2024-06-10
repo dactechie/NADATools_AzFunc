@@ -76,18 +76,18 @@ def write_aod_warnings(data:list[AODWarning]
 def get_essentials(container_name:str|None, qry_params:dict) -> tuple[dict,dict]:
   if not (qry_params and qry_params.get('s') and qry_params.get('e')):
     msg = f"unable to proceed without start and end dates."
-    logging.exception(msg)
+    logging.exception(msg, stack_info=True, exc_info=True)
     return {}, {"error": msg }
    
   if not container_name:
       msg = f"unable to proceed without app config {ConfigKeys.AZURE_BLOB_CONTAINER.value}"
-      logging.exception(msg)
+      logging.exception(msg, stack_info=True, exc_info=True)
       return {}, {"error": msg }
   
   config = load_blob_config(container_name)
   if not config:
       msg = f"unable to proceed without configuration.json file (blob-container: {container_name})."
-      logging.exception(msg)
+      logging.exception(msg, stack_info=True, exc_info=True)
       return {}, {"error": msg }
   
   return config, {}
