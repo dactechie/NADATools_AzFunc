@@ -98,7 +98,7 @@ def match_store_results(reporting_start_str:str, reporting_end_str:str
     
     if atom_cache_to_path:
       exp = AzureBlobExporter(container_name=atom_file_source.container_name) #
-      exp.export_dataframe(data_name=atom_cache_to_path, data=atoms_df)    
+      exp.export_dataframe(data_name=f"{asmt_folder}/{atom_cache_to_path}.parquet", data=atoms_df)    
                             # , prefix="MDS", suffix="AllPrograms")
     if not utdf.has_data(atoms_df):
       logging.error("No ATOMs")
