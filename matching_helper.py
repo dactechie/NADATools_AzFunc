@@ -1,5 +1,6 @@
 import os
 import logging
+from typing import Optional
 
 from assessment_episode_matcher.configs import load_blob_config
 from assessment_episode_matcher.utils.environment import ConfigKeys
@@ -15,6 +16,7 @@ from assessment_episode_matcher.matching.errors import process_errors_warnings
 from assessment_episode_matcher.exporters.main import AzureBlobExporter
 import assessment_episode_matcher.utils.df_ops_base as utdf
 from assessment_episode_matcher.mytypes import DataKeys as dk, Purpose
+from assessment_episode_matcher.configs.constants import MatchingConstants
 
 
 def get_essentials(container_name:str|None, qry_params:dict) -> tuple[dict,dict]:
@@ -37,7 +39,7 @@ def get_essentials(container_name:str|None, qry_params:dict) -> tuple[dict,dict]
   return config, {}
 
 
-def run(start_yyyymmd:str, end_yyyymmd:str) -> dict:
+def run(start_yyyymmd:str, end_yyyymmd:str, get_nearest_matching_slk:Optional[int] = 0) -> dict:
 
   container_name = os.environ.get('AZURE_BLOB_CONTAINER',"")
   
@@ -46,7 +48,13 @@ def run(start_yyyymmd:str, end_yyyymmd:str) -> dict:
                                                 , 'e':end_yyyymmd})
   if errors:
     return errors
-    
+  
+  # override loaded config, if passed in from URL
+  if get_nearest_matching_slk:
+     config[MatchingConstants.GET_NEAREST_SLK] = 1
+  
+  logging.info(f"Get nearest SLK : {config.get(MatchingConstants.GET_NEAREST_SLK,0)}.")
+
   result = match_store_results(
               reporting_start_str=start_yyyymmd
               ,reporting_end_str = end_yyyymmd
@@ -75,7 +83,7 @@ def match_store_results(reporting_start_str:str, reporting_end_str:str
     episode_df, ep_cache_to_path = EpisodesImporter.import_data(
                             reporting_start_str, reporting_end_str
                             , ep_file_source
-                            , prefix=ep_folder, suffix="AllPrograms")
+                            , prefix=ep_folder, suffix="AllPrograms", config=config)
     if not utdf.has_data(episode_df):
       logging.error("No episodes")
       return {"result":"no episode data"}

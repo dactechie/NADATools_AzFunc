@@ -59,11 +59,14 @@ def perform_mds_atom_matches(req: func.HttpRequest) -> func.HttpResponse: # , ms
     logging.info('Called Match')
 
     start_dt = req.params.get('start_date',"") 
-    end_dt = req.params.get('end_date',"")     
+    end_dt = req.params.get('end_date',"")  
+    nearest_slk = int(req.params.get('nearest_slk', "0"))
+    
     logging.info(f"Start date , End date {start_dt}  {end_dt}")
     
     result = ATOMEpisodeMatcher.run(start_yyyymmd=start_dt
-                                    ,end_yyyymmd=end_dt)
+                                    ,end_yyyymmd=end_dt
+                                    , get_nearest_matching_slk=nearest_slk)
     
     logging.info('Completed Match')
 
