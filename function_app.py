@@ -40,36 +40,48 @@ def BaseTest(req: func.HttpRequest) -> func.HttpResponse:
 
 @app.route(route="surveytxt")
 def generate_surveytxt(req: func.HttpRequest) -> func.HttpResponse: # , msg: func.Out[str])
-    logging.info('Called - SurveyTxt Generate. (expects matching to be complete)')
-    start_dt = req.params.get('start_date',"") 
-    end_dt = req.params.get('end_date',"")
-    logging.info(f"Start date , End date {start_dt}  {end_dt}")
+    try:
+      logging.info('Called - SurveyTxt Generate. (expects matching to be complete)')
+      start_dt = req.params.get('start_date',"") 
+      end_dt = req.params.get('end_date',"")
+      logging.info(f"Start date , End date {start_dt}  {end_dt}")
 
-    result = NADAImportFileGenerator.run(start_yyyymmd=start_dt
-                                         ,end_yyyymmd=end_dt)
-    logging.info('Completed - SurveyTxt Generate.')
+      result = NADAImportFileGenerator.run(start_yyyymmd=start_dt
+                                          ,end_yyyymmd=end_dt)
+      logging.info('Completed - SurveyTxt Generate.')
 
-    return func.HttpResponse(body=json.dumps(result),
-                                mimetype="application/json", status_code=200)
+      return func.HttpResponse(body=json.dumps(result),
+                                  mimetype="application/json", status_code=200)
+    except Exception as exp:
+        logging.exception("Exception raised while processing generate_surveytxt", exp)
+        return func.HttpResponse(body=json.dumps(exp),
+                                  mimetype="application/json", status_code=400)
+        
+        
 
 
 @app.route(route="match")
 # @app.function_name(name="HttpTriggerMatching")
 def perform_mds_atom_matches(req: func.HttpRequest) -> func.HttpResponse: # , msg: func.Out[str])
-    logging.info('Called Match')
+    try:
+      logging.info('Called Match')
 
-    start_dt = req.params.get('start_date',"") 
-    end_dt = req.params.get('end_date',"")  
-    nearest_slk = int(req.params.get('nearest_slk', "0"))
-    
-    logging.info(f"Start date , End date {start_dt}  {end_dt}")
-    
-    result = ATOMEpisodeMatcher.run(start_yyyymmd=start_dt
-                                    ,end_yyyymmd=end_dt
-                                    , get_nearest_matching_slk=nearest_slk)
-    
-    logging.info('Completed Match')
+      start_dt = req.params.get('start_date',"") 
+      end_dt = req.params.get('end_date',"")  
+      nearest_slk = int(req.params.get('nearest_slk', "0"))
+      
+      logging.info(f"Start date , End date {start_dt}  {end_dt}")
+      
+      result = ATOMEpisodeMatcher.run(start_yyyymmd=start_dt
+                                      ,end_yyyymmd=end_dt
+                                      , get_nearest_matching_slk=nearest_slk)
+      
+      logging.info('Completed Match')
 
-    return func.HttpResponse(body=json.dumps(result),
-                                mimetype="application/json", status_code=200)
+      return func.HttpResponse(body=json.dumps(result),
+                                  mimetype="application/json", status_code=200)
+    except Exception as exp:
+        logging.exception("Exception raised while processing perform_mds_atom_matches", exp)
+        return func.HttpResponse(body=json.dumps(exp),
+                                  mimetype="application/json", status_code=400)
   
