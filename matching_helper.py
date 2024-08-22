@@ -89,12 +89,12 @@ def match_store_results(reporting_start_str:str, reporting_end_str:str
       return {"result":"no episode data"}
                         # func.HttpResponse(body=json.dumps({"result":"no episode data"}),
                         #         mimetype="application/json", status_code=200)
-    if ep_cache_to_path:
-      if ep_cache_to_path[-3:] =='csv':
-         ep_cache_to_path = f"{ep_cache_to_path[:-3]}parquet"
+    # if ep_cache_to_path:
+    #   if ep_cache_to_path[-3:] =='csv':
+    #      ep_cache_to_path = f"{ep_cache_to_path[:-3]}parquet"
          
-      exp = AzureBlobExporter(container_name=ep_file_source.container_name) #
-      exp.export_dataframe(data_name=ep_cache_to_path, data=episode_df)
+    #   exp = AzureBlobExporter(container_name=ep_file_source.container_name) #
+    #   exp.export_dataframe(data_name=ep_cache_to_path, data=episode_df)
     
     atom_file_source:FileSource = BlobFileSource(container_name=container_name
                                             , folder_path=asmt_folder)
@@ -104,10 +104,10 @@ def match_store_results(reporting_start_str:str, reporting_end_str:str
                             , prefix=asmt_folder, suffix="AllPrograms"
                             , purpose=Purpose.NADA, refresh=True)
     
-    if atom_cache_to_path:
-      exp = AzureBlobExporter(container_name=atom_file_source.container_name) #
-      exp.export_dataframe(data_name=f"{asmt_folder}/{atom_cache_to_path}.parquet", data=atoms_df)    
-                            # , prefix="MDS", suffix="AllPrograms")
+    # if atom_cache_to_path:
+    #   exp = AzureBlobExporter(container_name=atom_file_source.container_name) #
+    #   exp.export_dataframe(data_name=f"{asmt_folder}/{atom_cache_to_path}.parquet", data=atoms_df)    
+    #                         # , prefix="MDS", suffix="AllPrograms")
     if not utdf.has_data(atoms_df):
       logging.error("No ATOMs")
       return {"result":"no ATOM data"}

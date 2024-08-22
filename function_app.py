@@ -80,6 +80,11 @@ def perform_mds_atom_matches(req: func.HttpRequest) -> func.HttpResponse: # , ms
 
       return func.HttpResponse(body=json.dumps(result),
                                   mimetype="application/json", status_code=200)
+
+    except AttributeError as ae:
+        logging.exception("AttributeError raised while processing perform_mds_atom_matches", ae.args)
+        return func.HttpResponse(body=json.dumps(ae),
+                                  mimetype="application/json", status_code=400) 
     except Exception as exp:
         logging.exception("Exception raised while processing perform_mds_atom_matches", exp)
         return func.HttpResponse(body=json.dumps(exp),
