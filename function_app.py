@@ -2,6 +2,7 @@ import json
 import logging
 import azure.functions as func
 import utils.log_telemetry as log_telemetry
+from utils.io import serialize_error
 import matching_helper as ATOMEpisodeMatcher
 import nada_helper as NADAImportFileGenerator
 
@@ -80,13 +81,17 @@ def perform_mds_atom_matches(req: func.HttpRequest) -> func.HttpResponse: # , ms
 
       return func.HttpResponse(body=json.dumps(result),
                                   mimetype="application/json", status_code=200)
-
+    
+    except FileNotFoundError as e:
+        serialized_error = serialize_error(e)
+        return func.HttpResponse(body=json.dumps(serialized_error),
+                                  mimetype="application/json", status_code=400)
     except AttributeError as ae:
         logging.exception("AttributeError raised while processing perform_mds_atom_matches", ae.args)
         return func.HttpResponse(body=json.dumps(ae),
                                   mimetype="application/json", status_code=400) 
-    except Exception as exp:
-        logging.exception("Exception raised while processing perform_mds_atom_matches", exp)
-        return func.HttpResponse(body=json.dumps(exp),
-                                  mimetype="application/json", status_code=400)
+    # except Exception as exp:
+    #     logging.exception("Exception raised while processing perform_mds_atom_matches", str(exp))
+    #     return func.HttpResponse(body=json.dumps(exp),
+    #                               mimetype="application/json", status_code=400)
   
