@@ -102,7 +102,7 @@ def match_store_results(reporting_start_str:str, reporting_end_str:str
                             reporting_start_str, reporting_end_str
                             , atom_file_source
                             , prefix=asmt_folder, suffix="AllPrograms"
-                            , purpose=Purpose.NADA, refresh=True)
+                            , purpose=Purpose.NADA, config=config, refresh=True)
     
     # if atom_cache_to_path:
     #   exp = AzureBlobExporter(container_name=atom_file_source.container_name) #
