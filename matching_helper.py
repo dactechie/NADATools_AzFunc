@@ -9,6 +9,7 @@ from assessment_episode_matcher.importers.main import BlobFileSource, FileSource
 from assessment_episode_matcher.importers import episodes as EpisodesImporter
 from assessment_episode_matcher.importers import assessments as ATOMsImporter
 from assessment_episode_matcher.utils.fromstr import get_date_from_str
+from assessment_episode_matcher.utils.dtypes import date_to_str
 
 from assessment_episode_matcher.matching import main as match_helper
 from assessment_episode_matcher.matching.errors import process_errors_warnings
@@ -87,19 +88,16 @@ def match_store_results(reporting_start_str:str, reporting_end_str:str
     if not utdf.has_data(episode_df):
       logging.error("No episodes")
       return {"result":"no episode data"}
-                        # func.HttpResponse(body=json.dumps({"result":"no episode data"}),
-                        #         mimetype="application/json", status_code=200)
-    # if ep_cache_to_path:
-    #   if ep_cache_to_path[-3:] =='csv':
-    #      ep_cache_to_path = f"{ep_cache_to_path[:-3]}parquet"
-         
-    #   exp = AzureBlobExporter(container_name=ep_file_source.container_name) #
-    #   exp.export_dataframe(data_name=ep_cache_to_path, data=episode_df)
+
     
+    # year_ago = reporting_start - timedelta(days=365)
+    # atoms_start_yrago_str = str(date_to_str(year_ago))
+    min_epcommence_date = min(episode_df.CommencementDate)
+    atoms_start = str(date_to_str(min_epcommence_date))
     atom_file_source:FileSource = BlobFileSource(container_name=container_name
                                             , folder_path=asmt_folder)
     atoms_df, atom_cache_to_path = ATOMsImporter.import_data(
-                            reporting_start_str, reporting_end_str
+                            atoms_start, reporting_end_str
                             , atom_file_source
                             , prefix=asmt_folder, suffix="AllPrograms"
                             , purpose=Purpose.NADA, config=config, refresh=True)
@@ -114,7 +112,7 @@ def match_store_results(reporting_start_str:str, reporting_end_str:str
     
     a_df, e_df, inperiod_atomslk_notin_ep, inperiod_epslk_notin_atom = \
       match_helper.get_data_for_matching2(episode_df, atoms_df
-                                        , reporting_start, reporting_end, slack_for_matching=7)    
+                                        , min_epcommence_date, reporting_end, slack_for_matching=7)    
     if not utdf.has_data(a_df) or not utdf.has_data(e_df):
         logging.warn("No data to match. Ending")
         return {"result":"No Data to match." }
@@ -123,6 +121,7 @@ def match_store_results(reporting_start_str:str, reporting_end_str:str
                                           , inperiod_atomslk_notin_ep
                                           , inperiod_epslk_notin_atom
                                           , slack_for_matching
+                                          , reporting_start, reporting_end
                                           , config)
 
     warning_asmt_ids  = final_good.SLK_RowKey.unique()

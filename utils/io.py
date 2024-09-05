@@ -2,6 +2,20 @@ import csv
 from io import StringIO
 from pathlib import Path
 
+# import json
+
+def serialize_error(error):
+    if isinstance(error, FileNotFoundError):
+        return {
+            "type": "FileNotFoundError",
+            "message": str(error),
+            "filename": error.filename,
+            "errno": error.errno,
+            "strerror": error.strerror,
+        }
+    # Add other error types as needed
+    return str(error)
+
 # import csv
 
 # def write_csv(location:Path, filename:str, data):

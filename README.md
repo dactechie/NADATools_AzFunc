@@ -17,7 +17,7 @@
 
 - -e C:\\Users\\aftab.jalal\\dev\\assessment_episode_matcher
 otherwise 
-assessment_episode_matcher==0.5.7
+assessment_episode_matcher==0.6.7
 
 ## Pushing to cloud
 

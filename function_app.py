@@ -41,7 +41,7 @@ def BaseTest(req: func.HttpRequest) -> func.HttpResponse:
 
 @app.route(route="surveytxt")
 def generate_surveytxt(req: func.HttpRequest) -> func.HttpResponse: # , msg: func.Out[str])
-    try:
+    # try:
       logging.info('Called - SurveyTxt Generate. (expects matching to be complete)')
       start_dt = req.params.get('start_date',"") 
       end_dt = req.params.get('end_date',"")
@@ -53,10 +53,10 @@ def generate_surveytxt(req: func.HttpRequest) -> func.HttpResponse: # , msg: fun
 
       return func.HttpResponse(body=json.dumps(result),
                                   mimetype="application/json", status_code=200)
-    except Exception as exp:
-        logging.exception("Exception raised while processing generate_surveytxt", exp)
-        return func.HttpResponse(body=json.dumps(exp),
-                                  mimetype="application/json", status_code=400)
+    # except Exception as exp:
+    #     logging.exception("Exception raised while processing generate_surveytxt", exp)
+    #     return func.HttpResponse(body=json.dumps(exp),
+    #                               mimetype="application/json", status_code=400)
         
         
 

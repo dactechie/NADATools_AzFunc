@@ -4,16 +4,39 @@ import pandas as pd
 from assessment_episode_matcher.configs import load_blob_config
 from assessment_episode_matcher.utils.environment import ConfigKeys
 from assessment_episode_matcher.exporters.main import AzureBlobExporter
-from assessment_episode_matcher.data_prep import prep_dataframe_nada
+from assessment_episode_matcher.data_prep import prep_nada_fields
 from assessment_episode_matcher.exporters import NADAbase as nada_df_generator
 from assessment_episode_matcher.importers.main import  BlobFileSource
 import assessment_episode_matcher.utils.df_ops_base as utdf
 import assessment_episode_matcher.importers.nada_indexed as io
 from assessment_episode_matcher.mytypes import AODWarning, CSVTypeObject
+from assessment_episode_matcher.mytypes import DataKeys as dk
+from assessment_episode_matcher.utils.fromstr import get_date_from_str
 
-def generate_nada_export(matched_assessments:pd.DataFrame, config:dict) \
+def generate_nada_export(matched_assessments:pd.DataFrame, reporting_start_str:str
+                                                 , reporting_end_str:str, config:dict) \
           -> tuple[pd.DataFrame,list[AODWarning]]:
-    res, warnings_aod = prep_dataframe_nada(matched_assessments, config)
+    matched_assessments1 = matched_assessments.copy()
+    
+    matched_assessments1["Stage"] = nada_df_generator\
+                              .get_stage_per_episode(matched_assessments1)
+    # limit by date range AssessmentDate
+    reporting_start, reporting_end = get_date_from_str (reporting_start_str,"%Y%m%d") \
+                                  , get_date_from_str (reporting_end_str,"%Y%m%d")
+    asmtdt_field = dk.assessment_date.value
+    reporting_start_ts = pd.Timestamp(reporting_start)
+    reporting_end_ts = pd.Timestamp(reporting_end)
+
+    filtered_assessments = matched_assessments1[
+        (pd.to_datetime(matched_assessments1[asmtdt_field]) >= reporting_start_ts) & 
+        (pd.to_datetime(matched_assessments1[asmtdt_field]) <= reporting_end_ts)
+    ]
+
+    # atoms_active_inperiod =\
+    #     utdf.in_period(matched_assessments1, asmtdt_field, asmtdt_field,
+    #                      reporting_start, reporting_end)    
+    
+    res, warnings_aod = prep_nada_fields(filtered_assessments, config)
 
     st = nada_df_generator.generate_finaloutput_df(res)        
     return st, warnings_aod
@@ -50,7 +73,8 @@ def generate_nada_save(reporting_start_str:str
     logging.error(msg)
     return 0, None
   
-  nada, warnings_aod = generate_nada_export(df_reindexed, config)
+  nada, warnings_aod = generate_nada_export(df_reindexed, reporting_start_str
+                                                 , reporting_end_str, config)
 
   outfile = f"{p_str}/surveytxt_{p_str}.csv"
   save_nada_data(nada, container=container_name, outfile=outfile)
