@@ -1,0 +1,157 @@
+{
+  "version_date": "2024-10-10",
+  "version_number": 2.6,
+  "change_notes": "Purpose Programs for NADA matching + PRIPGRIF. Also PCSMURM-> PCSWAGA",
+  "get_nearest_slk": 0,
+  "EstablishmentID_Program": {
+    "820002000": "TSS",
+    "82A000004": "ARCRESI",
+    "12QQ03076": "SAPPHIRE",
+    "12QQ03062": "EUROPATH",
+    "12QQ03061": "MONPATH",
+    "12QQ03063": "BEGAPATH",
+    "13K034": "MURMICE",
+    "12QQ03022": "GOLBGNRL",
+    "13Q035": "GOLBICE",
+    "12KK03024": "MURMPP",
+    "12KK03025": "MURMWIO",
+    "12KK03023": "MURMHEAD",
+    "13Q730": "BEGAHUB",    
+    "13Q712": "PCSBEGA",
+    "13Q724": "PCSCOOM",
+    "13Q716": "PCSEURO",
+    "13Q719": "PCSGOLB",
+    "13K726": "PCSWAGA",
+    "13K727": "PRIPWAGA",
+    "13K728": "PCSGRIF",    
+    "13K729": "PRIPGRIF",
+    "13Q714": "PRIPBEGA",
+    "13Q717": "PRIPEURO",
+    "13Q713": "YCBEGA",
+    "13Q718": "YCEURO",
+    "13Q720": "YCGOLB",
+    "13Q722": "YCQBN"
+  },
+  "purpose_programs": {
+    "NADA": [
+      "SAPPHIRE",
+      "EUROPATH",
+      "MONPATH",
+      "BEGAPATH",
+      "BEGAHUB",      
+      "GOLBGNRL",
+      "GOLBICE",
+      "MURMHEAD",
+      "MURMICE",
+      "MURMPP",
+      "MURMWIO",
+      "PCSBEGA",
+      "PCSCOOM",
+      "PCSEURO",
+      "PCSGOLB",
+      "PCSWAGA",
+      "PCSGRIF",      
+      "PRIPWAGA",
+      "PRIPBEGA",
+      "PRIPEURO",
+      "PRIPGRIF",
+      "YCBEGA",
+      "YCEURO",
+      "YCGOLB",
+      "YCQBN"
+    ]
+  },
+  "drug_categories": {
+    "Alcohol": [
+      "Ethanol",
+      "Alcohols, n.e.c."
+    ],
+    "Heroin": [
+      "Heroin"
+    ],
+    "Other Opioids": [
+      "Oxycodone",
+      "Pharmaceutical Opioids",
+      "Pharmaceutical Opioids, n.f.d.",
+      "Methadone",
+      "Opioid Antagonists, nec"
+    ],
+    "Cocaine": [
+      "Cocaine"
+    ],
+    "Cannabis": [
+      "Cannabinoids and Related Drugs, n.f.d.",
+      "Cannabinoids and related drugs, n.f.d.",
+      "Cannabinoids"
+    ],
+    "Amphetamines": [
+      "Amphetamines, n.f.d.",
+      "Amphetamines, n.f.d",
+      "Methamphetamine",
+      "Dexamphetamine"
+    ],
+    "Benzodiazepines": [
+      "Benzodiazepines, nec",
+      "Benzodiazepines, n.e.c.",
+      "Benzodiazepines, n.f.d",
+      "Benzodiazepines, n.f.d.",
+      "Diazepam"
+    ],
+    "Nicotine": [
+      "Nicotine"
+    ],
+    "Gambling": [
+      "Gambling"
+    ],
+    "Another Drug1": [],
+    "Another Drug2": []
+  },
+  "table_config": {
+    "ATOM": {
+      "fields": [
+        "PartitionKey",
+        "RowKey",
+        "Program",
+        "AssessmentDate",
+        "Staff",
+        "SurveyName",
+        "SurveyData",
+        "Timestamp"
+      ],
+      "filter": "AssessmentDate ge @lower and AssessmentDate le @upper and IsActive eq 1 and Program ne \"TEST\" and Status eq \"Complete\""
+    },
+    "MDS": {
+      "fields": [
+        "PartitionKey",
+        "GEOGRAPHICAL_LOCATION",
+        "RowKey",
+        "SLK",
+        "PERSON_ID",
+        "DOB",
+        "DOB_STATUS",
+        "SEX",
+        "COUNTRY_OF_BIRTH",
+        "INDIGENOUS_STATUS",
+        "PREFERRED_LANGUAGE",
+        "SOURCE_OF_INCOME",
+        "LIVING_ARRANGEMENT",
+        "USUAL_ACCOMMODATION",
+        "CLIENT_TYPE",
+        "PRINCIPAL_DRUG_OF_CONCERN",
+        "SPECIFY_DRUG_OF_CONCERN",
+        "ILLICIT_USE",
+        "METHOD_OF_USE_PRINCIPAL_DRUG",
+        "INJECTING_DRUG_USE",
+        "START_DATE",
+        "POSTCODE",
+        "SOURCE_OF_REFERRAL",
+        "MAIN_SERVICE",
+        "END_DATE",
+        "END_REASON",
+        "REFERRAL_TO_ANOTHER_SERVICE",
+        "PROVIDER"
+      ],
+      "filter": ""
+    }
+  }
+}
