@@ -1,4 +1,4 @@
 azure-core==1.30.0
 azure-functions==1.18.0
-assessment_episode_matcher==0.6.7
-azure_monitor_opentelemetry==1.6.0
+assessment_episode_matcher==0.6.9
+azure-monitor-opentelemetry>=1.0.0

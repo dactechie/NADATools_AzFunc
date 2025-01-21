@@ -40,7 +40,10 @@ def get_essentials(container_name:str|None, qry_params:dict) -> tuple[dict,dict]
   return config, {}
 
 
-def run(start_yyyymmd:str, end_yyyymmd:str, get_nearest_matching_slk:Optional[int] = 0) -> dict:
+def run(start_yyyymmd:str, end_yyyymmd:str
+        , only_for_slks: Optional[list[str]]
+        , get_nearest_matching_slk:Optional[int] = 0
+        ) -> dict:
 
   container_name = os.environ.get('AZURE_BLOB_CONTAINER',"")
   
@@ -58,18 +61,22 @@ def run(start_yyyymmd:str, end_yyyymmd:str, get_nearest_matching_slk:Optional[in
 
   result = match_store_results(
               reporting_start_str=start_yyyymmd
-              ,reporting_end_str = end_yyyymmd
+              ,reporting_end_str = end_yyyymmd 
               , container_name = container_name
-              , config=config)
+              , config=config
+              , only_for_slks=only_for_slks)
   return result
 
 
-def match_store_results(reporting_start_str:str, reporting_end_str:str
+def match_store_results(reporting_start_str:str, reporting_end_str:str                         
                         ,container_name:str
-                        , config:dict) -> dict:
+                        , config:dict
+                        , only_for_slks: Optional[list[str]]
+                        ) -> dict:
 
     ep_folder, asmt_folder = "MDS", "ATOM"
     p_str = f"{reporting_start_str}-{reporting_end_str}"
+    limited_slks = ""
 
     slack_for_matching = 7# int(cfg.get(ConfigKeys.MATCHING_NDAYS_SLACK.value, 7))
     # print(Bootstrap.config)
@@ -89,18 +96,24 @@ def match_store_results(reporting_start_str:str, reporting_end_str:str
       logging.error("No episodes")
       return {"result":"no episode data"}
 
-    
+    if only_for_slks:
+       limited_slks ="_filtered-slks_"
+       episode_df = episode_df[episode_df['SLK'].isin(only_for_slks)]
+       
+       
     # year_ago = reporting_start - timedelta(days=365)
     # atoms_start_yrago_str = str(date_to_str(year_ago))
     min_epcommence_date = min(episode_df.CommencementDate)
-    atoms_start = str(date_to_str(min_epcommence_date))
+    atoms_start = str(date_to_str(min(min_epcommence_date, reporting_start)))
     atom_file_source:FileSource = BlobFileSource(container_name=container_name
                                             , folder_path=asmt_folder)
     atoms_df, atom_cache_to_path = ATOMsImporter.import_data(
                             atoms_start, reporting_end_str
                             , atom_file_source
                             , prefix=asmt_folder, suffix="AllPrograms"
-                            , purpose=Purpose.NADA, config=config, refresh=True)
+                            , purpose=Purpose.NADA, config=config
+                            , only_for_slks=only_for_slks
+                            , refresh=True)
     
     # if atom_cache_to_path:
     #   exp = AzureBlobExporter(container_name=atom_file_source.container_name) #
@@ -114,7 +127,7 @@ def match_store_results(reporting_start_str:str, reporting_end_str:str
       match_helper.get_data_for_matching2(episode_df, atoms_df
                                         , min_epcommence_date, reporting_end, slack_for_matching=7)    
     if not utdf.has_data(a_df) or not utdf.has_data(e_df):
-        logging.warn("No data to match. Ending")
+        logging.warning("No data to match. Ending")
         return {"result":"No Data to match." }
     # e_df.to_csv('data/out/active_episodes.csv')
     final_good, ew = match_helper.match_and_get_issues(e_df, a_df
@@ -127,7 +140,7 @@ def match_store_results(reporting_start_str:str, reporting_end_str:str
     warning_asmt_ids  = final_good.SLK_RowKey.unique()
       
     ae = AzureBlobExporter(container_name=atom_file_source.container_name
-                           ,config={'location' : f"{p_str}/errors_warnings"})    
+                           ,config={'location' : f"{p_str}/errors_warnings{limited_slks}"})    
     ew_stats = process_errors_warnings(ew, warning_asmt_ids, dk.client_id.value
                             , period_start=reporting_start
                             , period_end=reporting_end
@@ -138,7 +151,7 @@ def match_store_results(reporting_start_str:str, reporting_end_str:str
 
     exp = AzureBlobExporter(container_name=atom_file_source.container_name) #
     
-    exp.export_dataframe(data_name=f"{p_str}/forstxt_{p_str}_matched.csv"
+    exp.export_dataframe(data_name=f"{p_str}/forstxt_{p_str}_matched{limited_slks}.csv"
                     , data=df_reindexed)
 
     return {"num_matched_rows": len(df_reindexed),

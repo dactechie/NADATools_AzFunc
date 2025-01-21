@@ -70,11 +70,15 @@ def perform_mds_atom_matches(req: func.HttpRequest) -> func.HttpResponse: # , ms
       start_dt = req.params.get('start_date',"") 
       end_dt = req.params.get('end_date',"")  
       nearest_slk = int(req.params.get('nearest_slk', "0"))
+      slks = req.params.get('slks',"")
+      slk_list = slks.split(',') if slks else []
+
       
       logging.info(f"Start date , End date {start_dt}  {end_dt}")
       
       result = ATOMEpisodeMatcher.run(start_yyyymmd=start_dt
                                       ,end_yyyymmd=end_dt
+                                      , only_for_slks=slk_list
                                       , get_nearest_matching_slk=nearest_slk)
       
       logging.info('Completed Match')
@@ -86,10 +90,10 @@ def perform_mds_atom_matches(req: func.HttpRequest) -> func.HttpResponse: # , ms
         serialized_error = serialize_error(e)
         return func.HttpResponse(body=json.dumps(serialized_error),
                                   mimetype="application/json", status_code=400)
-    except AttributeError as ae:
-        logging.exception("AttributeError raised while processing perform_mds_atom_matches", ae.args)
-        return func.HttpResponse(body=json.dumps(ae),
-                                  mimetype="application/json", status_code=400) 
+    # except AttributeError as ae:
+    #     logging.exception("AttributeError raised while processing perform_mds_atom_matches", ae.args)
+    #     return func.HttpResponse(body=json.dumps(ae),
+    #                               mimetype="application/json", status_code=400) 
     # except Exception as exp:
     #     logging.exception("Exception raised while processing perform_mds_atom_matches", str(exp))
     #     return func.HttpResponse(body=json.dumps(exp),

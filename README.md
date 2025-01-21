@@ -49,12 +49,17 @@ assessment_episode_matcher==0.6.7
 
 ## Pushing to cloud
 
- Open the VsCode Azure Extn and Expand - Function App> nada-tools-directions-slots
- right click on staging and deploy
- in the context menu that pop-up on the top , select the nada-tools-functions-staging option
+Staging slot is now deployed vi github actions - just push to main branch
 
-if not using the azure extension then:
-func azure functionapp publish nada-tools-directions --build remote
+- Old Way: Open the VsCode Azure Extn and Expand - Function App> nada-tools-directions-slots
+  right click on staging and deploy
+  in the context menu that pop-up on the top , select the nada-tools-functions-staging option
+
+  if not using the azure extension then:
+  func azure functionapp publish nada-tools-directions --build remote
+
+  Old way : Pushing to staging SLOT :
+  func azure functionapp publish nada-tools-directions --build remote --slot staging
 
 ## Open telemetry
 
