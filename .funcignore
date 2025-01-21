@@ -1,7 +1,6 @@
 *.json
 .venv
 data/**
-__*/**
 local.settings.json
 .vscode
 *.pyc

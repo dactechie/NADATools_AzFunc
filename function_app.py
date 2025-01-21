@@ -11,9 +11,10 @@ import nada_helper as NADAImportFileGenerator
 #   print("Config loaded: " ,config.keys())
 # config = load_blob_config()
 # Bootstrap.setup(Path(home), env="prod")
-
+logging.info('Function app starting 0 ')
 # print("Done Setup")
 app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
+logging.info('Function app starting 1')
 
 """
   - see full documentation here __ TODO: add docus
