@@ -63,4 +63,14 @@ Staging slot is now deployed vi github actions - just push to main branch
 
 ## Open telemetry
 
-[OpenTelementry](https://github.com/Azure/azure-sdk-for-python/tree/main/sdk/monitor/azure-monitor-opentelemetry/samples/loggig)
+[OpenTelementry](https://github.com/Azure/azure-sdk-for-python/tree/main/sdk/monitor/azure-monitor-opentelemetry/samples/logging)
+
+
+## Git
+pushing : git push origin main 
+git remote -v 
+ has PAT embedded in the url
+
+ not using wincred
+ git config --global --unset user.name
+  git config --global --unset user.email

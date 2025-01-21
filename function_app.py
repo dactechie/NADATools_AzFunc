@@ -1,12 +1,12 @@
 import json
 import logging
 import azure.functions as func
-import utils.log_telemetry as log_telemetry
+# import utils.log_telemetry as log_telemetry
 from utils.io import serialize_error
 import matching_helper as ATOMEpisodeMatcher
 import nada_helper as NADAImportFileGenerator
 
-log_telemetry.setup_logger_with_app_insights("NADA_Tools_Logger")
+# log_telemetry.setup_logger_with_app_insights("NADA_Tools_Logger")
 # if config:
 #   print("Config loaded: " ,config.keys())
 # config = load_blob_config()
