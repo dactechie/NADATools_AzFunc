@@ -45,7 +45,7 @@ graph TD
 
 - -e C:\\Users\\aftab.jalal\\dev\\assessment_episode_matcher
 otherwise 
-assessment_episode_matcher==0.6.7
+assessment_episode_matcher==0.7.0
 
 ## Pushing to cloud
 
