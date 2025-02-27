@@ -70,6 +70,7 @@ def perform_mds_atom_matches(req: func.HttpRequest) -> func.HttpResponse: # , ms
 
       start_dt = req.params.get('start_date',"") 
       end_dt = req.params.get('end_date',"")  
+      mds_file_suffix = req.params.get('mds_file_suffix',"AllPrograms")  
       nearest_slk = int(req.params.get('nearest_slk', "0"))
       slks = req.params.get('slks',"")
       slk_list = slks.split(',') if slks else []
@@ -79,8 +80,10 @@ def perform_mds_atom_matches(req: func.HttpRequest) -> func.HttpResponse: # , ms
       
       result = ATOMEpisodeMatcher.run(start_yyyymmd=start_dt
                                       ,end_yyyymmd=end_dt
-                                      , only_for_slks=slk_list
-                                      , get_nearest_matching_slk=nearest_slk)
+                                      , mds_file_suffix=mds_file_suffix
+                                      , only_for_slks=slk_list                                      
+                                      , get_nearest_matching_slk=nearest_slk
+                                      )
       
       logging.info('Completed Match')
 

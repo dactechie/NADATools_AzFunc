@@ -41,6 +41,7 @@ def get_essentials(container_name:str|None, qry_params:dict) -> tuple[dict,dict]
 
 
 def run(start_yyyymmd:str, end_yyyymmd:str
+        , mds_file_suffix:str
         , only_for_slks: Optional[list[str]]
         , get_nearest_matching_slk:Optional[int] = 0
         ) -> dict:
@@ -64,14 +65,16 @@ def run(start_yyyymmd:str, end_yyyymmd:str
               ,reporting_end_str = end_yyyymmd 
               , container_name = container_name
               , config=config
-              , only_for_slks=only_for_slks)
+              , only_for_slks=only_for_slks
+              , mds_file_suffix=mds_file_suffix)
   return result
 
 
-def match_store_results(reporting_start_str:str, reporting_end_str:str                         
+def match_store_results(reporting_start_str:str, reporting_end_str:str
                         ,container_name:str
                         , config:dict
                         , only_for_slks: Optional[list[str]]
+                        , mds_file_suffix:str
                         ) -> dict:
 
     ep_folder, asmt_folder = "MDS", "ATOM"
@@ -91,7 +94,7 @@ def match_store_results(reporting_start_str:str, reporting_end_str:str
     episode_df, ep_cache_to_path = EpisodesImporter.import_data(
                             reporting_start_str, reporting_end_str
                             , ep_file_source
-                            , prefix=ep_folder, suffix="AllPrograms", config=config)
+                            , prefix=ep_folder, suffix=mds_file_suffix, config=config)
     if not utdf.has_data(episode_df):
       logging.error("No episodes")
       return {"result":"no episode data"}
