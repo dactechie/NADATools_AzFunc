@@ -103,6 +103,19 @@ def match_store_results(reporting_start_str:str, reporting_end_str:str
        limited_slks ="_filtered-slks_"
        episode_df = episode_df[episode_df['SLK'].isin(only_for_slks)]
        
+       # Add check for empty DataFrame after filtering
+       if episode_df.empty:
+          logging.warning(f"No exact SLK matches found for the provided SLKs: {only_for_slks}")
+          # Only return early if nearest SLK matching is not enabled
+          if not config.get(MatchingConstants.GET_NEAREST_SLK, 0):
+              return {"result": f"No matching episodes found for the provided SLKs: {only_for_slks}"}
+          else:
+              logging.info(f"Continuing with nearest SLK matching since GET_NEAREST_SLK is enabled")
+              # Use all episodes for nearest SLK matching
+              episode_df = EpisodesImporter.import_data(
+                            reporting_start_str, reporting_end_str
+                            , ep_file_source
+                            , prefix=ep_folder, suffix=mds_file_suffix, config=config)[0]
        
     # year_ago = reporting_start - timedelta(days=365)
     # atoms_start_yrago_str = str(date_to_str(year_ago))

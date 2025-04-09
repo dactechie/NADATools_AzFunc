@@ -6,6 +6,7 @@
   "azureFunctions.projectRuntime": "~4",
   "debug.internalConsoleOptions": "neverOpen",
   "azureFunctions.projectLanguageModel": 2,
+  "azureFunctions.funcCliPath": "C:\\Program Files\\nodejs\\func.exe",
   "python.autoComplete.extraPaths": [
     "C:\\Users\\aftab.jalal\\dev\\assessment_episode_matcher"
   ],
