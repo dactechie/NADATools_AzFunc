@@ -1,5 +1,6 @@
 import os
 import logging
+from typing import Optional
 import pandas as pd
 from assessment_episode_matcher.configs import load_blob_config
 from assessment_episode_matcher.utils.environment import ConfigKeys
@@ -48,35 +49,46 @@ def save_nada_data(data:pd.DataFrame, container:str, outfile:str):
   exp.export_dataframe(data_name=outfile, data=data) 
 
 
-def get_matched_assessments(container_name, st_dt, end_dt):
+def get_matched_assessments(container_name, st_dt, end_dt
+                            , filter_programs: Optional[list[str]] = None):
   p_str = f"{st_dt}-{end_dt}"
   file_source = BlobFileSource(container_name
                                 ,folder_path=f"{p_str}")
+
+  # Build suffix to match the file created by match endpoint
+  program_suffix = "_" + "_".join(sorted(filter_programs)) if filter_programs else ""
+  suffix = f"{program_suffix}_matched"
+
   df , fname = io.import_data(st_dt, end_dt
                               , file_source
                               , prefix="forstxt_"
-                             , suffix="_matched")
+                             , suffix=suffix)
   return df, fname
 
 
 def generate_nada_save(reporting_start_str:str
         , reporting_end_str :str
-        , container_name:str, config:dict) -> tuple[int, list[AODWarning]|None]:
-  
+        , container_name:str, config:dict
+        , filter_programs: Optional[list[str]] = None) -> tuple[int, list[AODWarning]|None]:
+
   p_str = f"{reporting_start_str}-{reporting_end_str}"
+
+  # Build program suffix for file lookup and output naming
+  program_suffix = "_" + "_".join(sorted(filter_programs)) if filter_programs else ""
 
   df_reindexed, fname  = get_matched_assessments(container_name
                                                  , reporting_start_str
-                                                 , reporting_end_str)
+                                                 , reporting_end_str
+                                                 , filter_programs=filter_programs)
   if not utdf.has_data(df_reindexed):
     msg = f"No Indexed NADA data file with name {fname} could be found"
     logging.error(msg)
     return 0, None
-  
+
   nada, warnings_aod = generate_nada_export(df_reindexed, reporting_start_str
                                                  , reporting_end_str, config)
 
-  outfile = f"{p_str}/surveytxt_{p_str}.csv"
+  outfile = f"{p_str}/surveytxt_{p_str}{program_suffix}.csv"
   save_nada_data(nada, container=container_name, outfile=outfile)
 
   msg = f"saved {len(nada)} NADA COMS records to {outfile}"
@@ -117,7 +129,8 @@ def get_essentials(container_name:str|None, qry_params:dict) -> tuple[dict,dict]
   return config, {}
 
 
-def run(start_yyyymmd:str, end_yyyymmd:str) -> dict:
+def run(start_yyyymmd:str, end_yyyymmd:str
+        , filter_programs: Optional[list[str]] = None) -> dict:
 
   container_name = os.environ.get('AZURE_BLOB_CONTAINER',"")
 
@@ -126,11 +139,12 @@ def run(start_yyyymmd:str, end_yyyymmd:str) -> dict:
                                                 , 'e':end_yyyymmd})
   if errors:
     return errors
-  
+
   len_nada , warnings_aod = generate_nada_save(start_yyyymmd
                                                , end_yyyymmd
                                                , container_name
-                                               , config)
+                                               , config
+                                               , filter_programs=filter_programs)
   result = {"num_nada_rows": len_nada}
   logging.info(f"Recorded {len_nada} NADA records in storage.")
 

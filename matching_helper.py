@@ -44,6 +44,7 @@ def run(start_yyyymmd:str, end_yyyymmd:str
         , mds_file_suffix:str
         , only_for_slks: Optional[list[str]]
         , get_nearest_matching_slk:Optional[int] = 0
+        , filter_programs: Optional[list[str]] = None
         ) -> dict:
 
   container_name = os.environ.get('AZURE_BLOB_CONTAINER',"")
@@ -62,11 +63,12 @@ def run(start_yyyymmd:str, end_yyyymmd:str
 
   result = match_store_results(
               reporting_start_str=start_yyyymmd
-              ,reporting_end_str = end_yyyymmd 
+              ,reporting_end_str = end_yyyymmd
               , container_name = container_name
               , config=config
               , only_for_slks=only_for_slks
-              , mds_file_suffix=mds_file_suffix)
+              , mds_file_suffix=mds_file_suffix
+              , filter_programs=filter_programs)
   return result
 
 
@@ -75,11 +77,13 @@ def match_store_results(reporting_start_str:str, reporting_end_str:str
                         , config:dict
                         , only_for_slks: Optional[list[str]]
                         , mds_file_suffix:str
+                        , filter_programs: Optional[list[str]] = None
                         ) -> dict:
 
     ep_folder, asmt_folder = "MDS", "ATOM"
     p_str = f"{reporting_start_str}-{reporting_end_str}"
     limited_slks = ""
+    limited_programs = ""
 
     slack_for_matching = 7# int(cfg.get(ConfigKeys.MATCHING_NDAYS_SLACK.value, 7))
     # print(Bootstrap.config)
@@ -116,7 +120,18 @@ def match_store_results(reporting_start_str:str, reporting_end_str:str
                             reporting_start_str, reporting_end_str
                             , ep_file_source
                             , prefix=ep_folder, suffix=mds_file_suffix, config=config)[0]
-       
+
+    # Program filtering for episodes
+    if filter_programs:
+        # Build explicit suffix from sorted program names for deterministic filenames
+        limited_programs = "_" + "_".join(sorted(filter_programs))
+        logging.info(f"Filtering episodes by programs: {filter_programs}")
+        episode_df = episode_df[episode_df['Program'].isin(filter_programs)]
+
+        if episode_df.empty:
+            logging.warning(f"No episodes found for programs: {filter_programs}")
+            return {"result": f"No episodes found for the specified programs: {filter_programs}"}
+
     # year_ago = reporting_start - timedelta(days=365)
     # atoms_start_yrago_str = str(date_to_str(year_ago))
     min_epcommence_date = min(episode_df.CommencementDate)
@@ -129,6 +144,7 @@ def match_store_results(reporting_start_str:str, reporting_end_str:str
                             , prefix=asmt_folder, suffix="AllPrograms"
                             , purpose=Purpose.NADA, config=config
                             , only_for_slks=only_for_slks
+                            , filter_programs=filter_programs
                             , refresh=True)
     
     # if atom_cache_to_path:
@@ -155,8 +171,9 @@ def match_store_results(reporting_start_str:str, reporting_end_str:str
 
     warning_asmt_ids  = final_good.SLK_RowKey.unique()
       
+    filter_indicator = limited_slks + limited_programs
     ae = AzureBlobExporter(container_name=atom_file_source.container_name
-                           ,config={'location' : f"{p_str}/errors_warnings{limited_slks}"})    
+                           ,config={'location' : f"{p_str}/errors_warnings{filter_indicator}"})    
     ew_stats = process_errors_warnings(ew, warning_asmt_ids, dk.client_id.value
                             , period_start=reporting_start
                             , period_end=reporting_end
@@ -167,7 +184,7 @@ def match_store_results(reporting_start_str:str, reporting_end_str:str
 
     exp = AzureBlobExporter(container_name=atom_file_source.container_name) #
     
-    exp.export_dataframe(data_name=f"{p_str}/forstxt_{p_str}_matched{limited_slks}.csv"
+    exp.export_dataframe(data_name=f"{p_str}/forstxt_{p_str}{filter_indicator}_matched.csv"
                     , data=df_reindexed)
 
     return {"num_matched_rows": len(df_reindexed),

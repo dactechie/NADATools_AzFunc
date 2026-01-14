@@ -44,12 +44,18 @@ def BaseTest(req: func.HttpRequest) -> func.HttpResponse:
 def generate_surveytxt(req: func.HttpRequest) -> func.HttpResponse: # , msg: func.Out[str])
     # try:
       logging.info('Called - SurveyTxt Generate. (expects matching to be complete)')
-      start_dt = req.params.get('start_date',"") 
+      start_dt = req.params.get('start_date',"")
       end_dt = req.params.get('end_date',"")
+      programs = req.params.get('programs',"")
+      program_list = [p.strip() for p in programs.split(',') if p.strip()] if programs else []
+
       logging.info(f"Start date , End date {start_dt}  {end_dt}")
+      if program_list:
+          logging.info(f"Program filter active: {program_list}")
 
       result = NADAImportFileGenerator.run(start_yyyymmd=start_dt
-                                          ,end_yyyymmd=end_dt)
+                                          ,end_yyyymmd=end_dt
+                                          ,filter_programs=program_list)
       logging.info('Completed - SurveyTxt Generate.')
 
       return func.HttpResponse(body=json.dumps(result),
@@ -68,21 +74,25 @@ def perform_mds_atom_matches(req: func.HttpRequest) -> func.HttpResponse: # , ms
     try:
       logging.info('Called Match')
 
-      start_dt = req.params.get('start_date',"") 
-      end_dt = req.params.get('end_date',"")  
-      mds_file_suffix = req.params.get('mds_file_suffix',"AllPrograms")  
+      start_dt = req.params.get('start_date',"")
+      end_dt = req.params.get('end_date',"")
+      mds_file_suffix = req.params.get('mds_file_suffix',"AllPrograms")
       nearest_slk = int(req.params.get('nearest_slk', "0"))
       slks = req.params.get('slks',"")
       slk_list = slks.split(',') if slks else []
+      programs = req.params.get('programs',"")
+      program_list = [p.strip() for p in programs.split(',') if p.strip()] if programs else []
 
-      
       logging.info(f"Start date , End date {start_dt}  {end_dt}")
-      
+      if program_list:
+          logging.info(f"Program filter active: {program_list}")
+
       result = ATOMEpisodeMatcher.run(start_yyyymmd=start_dt
                                       ,end_yyyymmd=end_dt
                                       , mds_file_suffix=mds_file_suffix
-                                      , only_for_slks=slk_list                                      
+                                      , only_for_slks=slk_list
                                       , get_nearest_matching_slk=nearest_slk
+                                      , filter_programs=program_list
                                       )
       
       logging.info('Completed Match')
