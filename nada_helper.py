@@ -15,28 +15,35 @@ from assessment_episode_matcher.mytypes import DataKeys as dk
 from assessment_episode_matcher.utils.fromstr import get_date_from_str
 
 def generate_nada_export(matched_assessments:pd.DataFrame, reporting_start_str:str
-                                                 , reporting_end_str:str, config:dict) \
+                                                 , reporting_end_str:str, config:dict
+                                                 , include_all_assessments:bool = False) \
           -> tuple[pd.DataFrame,list[AODWarning]]:
     matched_assessments1 = matched_assessments.copy()
-    
+
     matched_assessments1["Stage"] = nada_df_generator\
                               .get_stage_per_episode(matched_assessments1)
-    # limit by date range AssessmentDate
-    reporting_start, reporting_end = get_date_from_str (reporting_start_str,"%Y%m%d") \
-                                  , get_date_from_str (reporting_end_str,"%Y%m%d")
-    asmtdt_field = dk.assessment_date.value
-    reporting_start_ts = pd.Timestamp(reporting_start)
-    reporting_end_ts = pd.Timestamp(reporting_end)
 
-    filtered_assessments = matched_assessments1[
-        (pd.to_datetime(matched_assessments1[asmtdt_field]) >= reporting_start_ts) & 
-        (pd.to_datetime(matched_assessments1[asmtdt_field]) <= reporting_end_ts)
-    ]
+    if include_all_assessments:
+        # Skip date filtering - include all assessments linked to episodes
+        logging.info("Skipping AssessmentDate filter (include_all_assessments=True)")
+        filtered_assessments = matched_assessments1
+    else:
+        # limit by date range AssessmentDate
+        reporting_start, reporting_end = get_date_from_str (reporting_start_str,"%Y%m%d") \
+                                      , get_date_from_str (reporting_end_str,"%Y%m%d")
+        asmtdt_field = dk.assessment_date.value
+        reporting_start_ts = pd.Timestamp(reporting_start)
+        reporting_end_ts = pd.Timestamp(reporting_end)
+
+        filtered_assessments = matched_assessments1[
+            (pd.to_datetime(matched_assessments1[asmtdt_field]) >= reporting_start_ts) &
+            (pd.to_datetime(matched_assessments1[asmtdt_field]) <= reporting_end_ts)
+        ]
 
     # atoms_active_inperiod =\
     #     utdf.in_period(matched_assessments1, asmtdt_field, asmtdt_field,
-    #                      reporting_start, reporting_end)    
-    
+    #                      reporting_start, reporting_end)
+
     res, warnings_aod = prep_nada_fields(filtered_assessments, config)
 
     st = nada_df_generator.generate_finaloutput_df(res)        
@@ -69,7 +76,8 @@ def get_matched_assessments(container_name, st_dt, end_dt
 def generate_nada_save(reporting_start_str:str
         , reporting_end_str :str
         , container_name:str, config:dict
-        , filter_programs: Optional[list[str]] = None) -> tuple[int, list[AODWarning]|None]:
+        , filter_programs: Optional[list[str]] = None
+        , include_all_assessments: bool = False) -> tuple[int, list[AODWarning]|None]:
 
   p_str = f"{reporting_start_str}-{reporting_end_str}"
 
@@ -86,7 +94,8 @@ def generate_nada_save(reporting_start_str:str
     return 0, None
 
   nada, warnings_aod = generate_nada_export(df_reindexed, reporting_start_str
-                                                 , reporting_end_str, config)
+                                                 , reporting_end_str, config
+                                                 , include_all_assessments=include_all_assessments)
 
   outfile = f"{p_str}/surveytxt_{p_str}{program_suffix}.csv"
   save_nada_data(nada, container=container_name, outfile=outfile)
@@ -130,7 +139,8 @@ def get_essentials(container_name:str|None, qry_params:dict) -> tuple[dict,dict]
 
 
 def run(start_yyyymmd:str, end_yyyymmd:str
-        , filter_programs: Optional[list[str]] = None) -> dict:
+        , filter_programs: Optional[list[str]] = None
+        , include_all_assessments: bool = False) -> dict:
 
   container_name = os.environ.get('AZURE_BLOB_CONTAINER',"")
 
@@ -144,7 +154,8 @@ def run(start_yyyymmd:str, end_yyyymmd:str
                                                , end_yyyymmd
                                                , container_name
                                                , config
-                                               , filter_programs=filter_programs)
+                                               , filter_programs=filter_programs
+                                               , include_all_assessments=include_all_assessments)
   result = {"num_nada_rows": len_nada}
   logging.info(f"Recorded {len_nada} NADA records in storage.")
 

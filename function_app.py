@@ -47,15 +47,19 @@ def generate_surveytxt(req: func.HttpRequest) -> func.HttpResponse: # , msg: fun
       start_dt = req.params.get('start_date',"")
       end_dt = req.params.get('end_date',"")
       programs = req.params.get('programs',"")
+      include_all = req.params.get('include_all',"").lower() == "true"
       program_list = [p.strip() for p in programs.split(',') if p.strip()] if programs else []
 
       logging.info(f"Start date , End date {start_dt}  {end_dt}")
       if program_list:
           logging.info(f"Program filter active: {program_list}")
+      if include_all:
+          logging.info("include_all=true: Including all assessments linked to episodes (no date filter)")
 
       result = NADAImportFileGenerator.run(start_yyyymmd=start_dt
                                           ,end_yyyymmd=end_dt
-                                          ,filter_programs=program_list)
+                                          ,filter_programs=program_list
+                                          ,include_all_assessments=include_all)
       logging.info('Completed - SurveyTxt Generate.')
 
       return func.HttpResponse(body=json.dumps(result),
