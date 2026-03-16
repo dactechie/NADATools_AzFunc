@@ -1,0 +1,7 @@
+graph TD
+    A[Start End-of-Month Process] --> B[Run final matching process]
+    B --> C[Generate survey.txt file]
+    C --> D[Calculate and add stage numbers to assessments]
+    D --> E[Update Qualtrics assessments with stage numbers]
+    E --> F[Prepare monthly funder data uploads]
+    F --> G[End End-of-Month Process]

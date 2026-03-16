@@ -1,0 +1,14 @@
+graph TD
+    A[Start Weekly Process] --> B[Export unmatched assessments from Qualtrics]
+    B --> C[Run matcher process]
+    C --> D{Match found?}
+    D -->|Yes| E[Qualtrics update automation]
+    D -->|No| F[Flag for manual review]
+    F --> G{IT Admin Review}
+    G -->|Can fix| H[Manually update assessment in Qualtrics]
+    G -->|Needs staff input| I[Pass to staff for Communicare update]
+    I --> J[Staff updates Episode in Communicare]
+    J --> K[IT Admin updates Qualtrics assessment]
+    E --> L[End Weekly Process]
+    H --> L
+    K --> L

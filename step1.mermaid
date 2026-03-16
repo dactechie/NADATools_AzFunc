@@ -1,0 +1,10 @@
+graph TD
+    A[Start] --> B[Staff submits internal form]
+    B --> C[System pre-fills Program from Episode data]
+    C --> D[Generate assessment link with embedded data]
+    D --> E[Client clicks link and completes assessment]
+    E --> F{Episode ID present?}
+    F -->|Yes| G[Store Episode ID with assessment]
+    F -->|No| H[Assessment stored without Episode ID]
+    G --> I[End]
+    H --> I
