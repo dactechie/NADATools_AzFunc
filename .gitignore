@@ -1,11 +1,34 @@
 azurite/
-*.json
 *.csv
 *.parquet
-*.txt
 *.xlsx
 .venvOld/
 archive/
+
+# Local settings with secrets
+local.settings.json
+local.settings_*.json
+local.settingspro.json
+
+# Azurite local storage artifacts
+__azurite_db_*.json
+__blobstorage__/
+
+# Local data
+data/
+
+# Temp/junk files
+a.json
+nul
+
+# Screenshots/images (keep in docs if needed)
+*.png
+
+# PDF docs (share via SharePoint/Teams)
+docs/*.pdf
+
+# Claude Code local config
+.claude/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

@@ -3,11 +3,10 @@
   "configurations": [
     {
       "name": "Attach to Python Functions",
-      "type": "python",
+      "type": "debugpy",
       "request": "attach",
-      // "port": 9091,
-      "host": "localhost",
-      "preLaunchTask": "func: host start"
+      "preLaunchTask": "func: host start",
+      "postDebugTask": "func: stop host"
     }
   ]
 }
