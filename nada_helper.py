@@ -28,8 +28,8 @@ def generate_nada_export(matched_assessments:pd.DataFrame, reporting_start_str:s
     reporting_end_ts = pd.Timestamp(reporting_end)
 
     filtered_assessments = matched_assessments1[
-        (pd.to_datetime(matched_assessments1[asmtdt_field]) >= reporting_start_ts) & 
-        (pd.to_datetime(matched_assessments1[asmtdt_field]) <= reporting_end_ts)
+        (pd.to_datetime(matched_assessments1[asmtdt_field], dayfirst=True) >= reporting_start_ts) &
+        (pd.to_datetime(matched_assessments1[asmtdt_field], dayfirst=True) <= reporting_end_ts)
     ]
 
     # atoms_active_inperiod =\
