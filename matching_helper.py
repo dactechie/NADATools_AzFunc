@@ -20,6 +20,33 @@ from assessment_episode_matcher.mytypes import DataKeys as dk, Purpose
 from assessment_episode_matcher.configs.constants import MatchingConstants
 
 
+def archive_errors_warnings(container_name: str, ew_folder: str):
+    """Move existing error/warning files to a timestamped archive folder."""
+    from datetime import datetime
+    from assessment_episode_matcher.azutil.az_blob_query import AzureBlobQuery
+
+    az = AzureBlobQuery()
+    container_client = az.blob_service_client.get_container_client(container_name)
+
+    blobs = list(container_client.list_blobs(name_starts_with=ew_folder + "/"))
+    if not blobs:
+        logging.info(f"No existing errors/warnings to archive in {ew_folder}")
+        return
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    archive_folder = f"{ew_folder}_archived_{timestamp}"
+
+    for blob in blobs:
+        src_client = container_client.get_blob_client(blob.name)
+        data = src_client.download_blob().readall()
+        dest_name = blob.name.replace(ew_folder, archive_folder, 1)
+        dest_client = container_client.get_blob_client(dest_name)
+        dest_client.upload_blob(data, overwrite=True)
+        src_client.delete_blob()
+
+    logging.info(f"Archived {len(blobs)} error/warning files to {archive_folder}")
+
+
 def get_essentials(container_name:str|None, qry_params:dict) -> tuple[dict,dict]:
   if not (qry_params and qry_params.get('s') and qry_params.get('e')):
     msg = f"unable to proceed without start and end dates."
@@ -141,10 +168,26 @@ def match_store_results(reporting_start_str:str, reporting_end_str:str
     
     a_df, e_df, inperiod_atomslk_notin_ep, inperiod_epslk_notin_atom = \
       match_helper.get_data_for_matching2(episode_df, atoms_df
-                                        , min_epcommence_date, reporting_end, slack_for_matching=7)    
+                                        , min_epcommence_date, reporting_end, slack_for_matching=7)
     if not utdf.has_data(a_df) or not utdf.has_data(e_df):
-        logging.warning("No data to match. Ending")
-        return {"result":"No Data to match." }
+        if config.get(MatchingConstants.GET_NEAREST_SLK, 0) \
+            and utdf.has_data(inperiod_atomslk_notin_ep):
+            # ATOMs exist but their SLKs aren't in any episode.
+            # Find nearest episode SLKs, substitute, and retry matching.
+            atom_slks = inperiod_atomslk_notin_ep.SLK.unique().tolist()
+            ep_slks = episode_df.SLK.unique().tolist()
+            nearest_matches = match_helper.get_closest_slk_match(atom_slks, ep_slks)
+            if nearest_matches:
+                logging.info(f"Nearest SLK matches: {nearest_matches}")
+                atoms_df_remapped = atoms_df.copy()
+                atoms_df_remapped['original_SLK'] = atoms_df_remapped['SLK']
+                atoms_df_remapped['SLK'] = atoms_df_remapped['SLK'].map(nearest_matches).fillna(atoms_df_remapped['SLK'])
+                a_df, e_df, inperiod_atomslk_notin_ep, inperiod_epslk_notin_atom = \
+                    match_helper.get_data_for_matching2(episode_df, atoms_df_remapped
+                                                      , min_epcommence_date, reporting_end, slack_for_matching=7)
+        if not utdf.has_data(a_df) or not utdf.has_data(e_df):
+            logging.warning("No data to match. Ending")
+            return {"result":"No Data to match." }
     # e_df.to_csv('data/out/active_episodes.csv')
     final_good, ew = match_helper.match_and_get_issues(e_df, a_df
                                           , inperiod_atomslk_notin_ep
@@ -155,8 +198,11 @@ def match_store_results(reporting_start_str:str, reporting_end_str:str
 
     warning_asmt_ids  = final_good.SLK_RowKey.unique()
       
+    ew_folder = f"{p_str}/errors_warnings{limited_slks}"
+    archive_errors_warnings(container_name, ew_folder)
+
     ae = AzureBlobExporter(container_name=atom_file_source.container_name
-                           ,config={'location' : f"{p_str}/errors_warnings{limited_slks}"})    
+                           ,config={'location' : ew_folder})    
     ew_stats = process_errors_warnings(ew, warning_asmt_ids, dk.client_id.value
                             , period_start=reporting_start
                             , period_end=reporting_end
