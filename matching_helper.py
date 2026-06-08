@@ -17,7 +17,6 @@ from assessment_episode_matcher.matching.errors import process_errors_warnings
 from assessment_episode_matcher.exporters.main import AzureBlobExporter
 import assessment_episode_matcher.utils.df_ops_base as utdf
 from assessment_episode_matcher.mytypes import DataKeys as dk, Purpose
-from assessment_episode_matcher.configs.constants import MatchingConstants
 
 
 def archive_errors_warnings(container_name: str, ew_folder: str):
@@ -70,22 +69,15 @@ def get_essentials(container_name:str|None, qry_params:dict) -> tuple[dict,dict]
 def run(start_yyyymmd:str, end_yyyymmd:str
         , mds_file_suffix:str
         , only_for_slks: Optional[list[str]]
-        , get_nearest_matching_slk:Optional[int] = 0
         ) -> dict:
 
   container_name = os.environ.get('AZURE_BLOB_CONTAINER',"")
-  
+
   config, errors = get_essentials(container_name
                                   , qry_params={'s':start_yyyymmd
                                                 , 'e':end_yyyymmd})
   if errors:
     return errors
-  
-  # override loaded config, if passed in from URL
-  if get_nearest_matching_slk:
-     config[MatchingConstants.GET_NEAREST_SLK] = 1
-  
-  logging.info(f"Get nearest SLK : {config.get(MatchingConstants.GET_NEAREST_SLK,0)}.")
 
   result = match_store_results(
               reporting_start_str=start_yyyymmd
@@ -129,20 +121,10 @@ def match_store_results(reporting_start_str:str, reporting_end_str:str
     if only_for_slks:
        limited_slks ="_filtered-slks_"
        episode_df = episode_df[episode_df['SLK'].isin(only_for_slks)]
-       
-       # Add check for empty DataFrame after filtering
+
        if episode_df.empty:
           logging.warning(f"No exact SLK matches found for the provided SLKs: {only_for_slks}")
-          # Only return early if nearest SLK matching is not enabled
-          if not config.get(MatchingConstants.GET_NEAREST_SLK, 0):
-              return {"result": f"No matching episodes found for the provided SLKs: {only_for_slks}"}
-          else:
-              logging.info(f"Continuing with nearest SLK matching since GET_NEAREST_SLK is enabled")
-              # Use all episodes for nearest SLK matching
-              episode_df = EpisodesImporter.import_data(
-                            reporting_start_str, reporting_end_str
-                            , ep_file_source
-                            , prefix=ep_folder, suffix=mds_file_suffix, config=config)[0]
+          return {"result": f"No matching episodes found for the provided SLKs: {only_for_slks}"}
        
     # year_ago = reporting_start - timedelta(days=365)
     # atoms_start_yrago_str = str(date_to_str(year_ago))
@@ -152,11 +134,9 @@ def match_store_results(reporting_start_str:str, reporting_end_str:str
                                             , folder_path=asmt_folder)
     atoms_df, atom_cache_to_path = ATOMsImporter.import_data(
                             atoms_start, reporting_end_str
-                            , atom_file_source
                             , prefix=asmt_folder, suffix="AllPrograms"
                             , purpose=Purpose.NADA, config=config
-                            , only_for_slks=only_for_slks
-                            , refresh=True)
+                            , only_for_slks=only_for_slks)
     
     # if atom_cache_to_path:
     #   exp = AzureBlobExporter(container_name=atom_file_source.container_name) #
@@ -170,31 +150,14 @@ def match_store_results(reporting_start_str:str, reporting_end_str:str
       match_helper.get_data_for_matching2(episode_df, atoms_df
                                         , min_epcommence_date, reporting_end, slack_for_matching=7)
     if not utdf.has_data(a_df) or not utdf.has_data(e_df):
-        if config.get(MatchingConstants.GET_NEAREST_SLK, 0) \
-            and utdf.has_data(inperiod_atomslk_notin_ep):
-            # ATOMs exist but their SLKs aren't in any episode.
-            # Find nearest episode SLKs, substitute, and retry matching.
-            atom_slks = inperiod_atomslk_notin_ep.SLK.unique().tolist()
-            ep_slks = episode_df.SLK.unique().tolist()
-            nearest_matches = match_helper.get_closest_slk_match(atom_slks, ep_slks)
-            if nearest_matches:
-                logging.info(f"Nearest SLK matches: {nearest_matches}")
-                atoms_df_remapped = atoms_df.copy()
-                atoms_df_remapped['original_SLK'] = atoms_df_remapped['SLK']
-                atoms_df_remapped['SLK'] = atoms_df_remapped['SLK'].map(nearest_matches).fillna(atoms_df_remapped['SLK'])
-                a_df, e_df, inperiod_atomslk_notin_ep, inperiod_epslk_notin_atom = \
-                    match_helper.get_data_for_matching2(episode_df, atoms_df_remapped
-                                                      , min_epcommence_date, reporting_end, slack_for_matching=7)
-        if not utdf.has_data(a_df) or not utdf.has_data(e_df):
-            logging.warning("No data to match. Ending")
-            return {"result":"No Data to match." }
+        logging.warning("No data to match. Ending")
+        return {"result":"No Data to match." }
     # e_df.to_csv('data/out/active_episodes.csv')
     final_good, ew = match_helper.match_and_get_issues(e_df, a_df
                                           , inperiod_atomslk_notin_ep
                                           , inperiod_epslk_notin_atom
                                           , slack_for_matching
-                                          , reporting_start, reporting_end
-                                          , config)
+                                          , reporting_start, reporting_end)
 
     warning_asmt_ids  = final_good.SLK_RowKey.unique()
       
